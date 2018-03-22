@@ -1,0 +1,173 @@
+const HTTP_ENDPOINT = "https://api.scriptrapps.io";
+const MQTT_ENDPOINT = "mqtts://mqtt.scriptr.io";
+const PROXY_FOLDER = "smart-agent/proxies/";
+const SCRIPT_CONTENT_TYPE = "application/vnd.scriptr-javascript";
+
+function ProxyFactory() {
+
+}
+
+ProxyFactory.prototype.getProxy = function(descriptor) {
+    
+    if (!this.proxyExists()) {
+        this.generateProxy()
+    }
+};
+
+ProxyFactory.prototype.proxyExists = function(className) {
+
+    var params = {
+    
+        "apsdb.name": className + "_module",
+        "apsdb.scope": "app"        
+    };
+    
+    var resp = apsdb.callApi("GetFileContent", params, null);
+    if (resp.metadata.status == "failure") {
+        
+        if (resp.metadata.errorCode == "FILE_NOT_FOUND") {
+            return false;
+        }else {
+            throw resp;
+        }
+    }
+    
+    return true;
+};
+
+Proxy.prototype.getClassNameFromDescriptor = function(descriptor) {
+  
+    var className = descriptor["x-node-id"];
+    className = className.replace(/\-/g, "_");
+    className = className.replace(/\./g, "_");   
+    return className
+};
+
+ProxyFactory.prototype.generateProxy = function(descriptor) {
+
+    var className = this.getClassNameFromDescriptor(descriptor);
+    var moduleDefStr = "var http = require('http');\n";
+    var classDefStr = "function " + className + "(dto){\n";
+    classDefStr += "\tif (!dto || !dto.token || !dto.username || !dto.password){\n";
+    classDefStr += "\t\tthrow {\n";
+    classDefStr += "\t\t\terrorCode:'Missing_Parameter',\n"; 
+    classDefStr += "\t\t\terrorDetail:'dto.token, dto.username, dto.password should be defined'\n";
+    classDefStr += "\t\t};\n";
+    classDefStr += "\t}\n";
+    classDefStr += "\tthis.httpEndpoint = dto.httpEndpoint ? dto.httpEndpoint : '" + HTTP_ENDPOINT + "';\n";
+    classDefStr += "\tthis.mqttEndpoint = dto.mqttpEndpoint ? dto.mqttpEndpoint : '" + MQTT_ENDPOINT + "';\n";
+    classDefStr += "\tthis.token = dto.token; this.username = dto.username; this.password = dto.password\n";
+    classDefStr += "}\n"
+    classDefStr += this.generateMethods(className, descriptor.paths) + "\n";
+    classDefStr += this.generateHttpCaller(className) + "\n";
+    moduleDefStr = moduleDefStr + classDefStr;
+    return this.saveProxy(className + "_module", moduleDefStr);
+};
+
+ProxyFactory.prototype.generateMethods = function(name, path) {
+
+    var keys = Object.keys(path);
+    for (var i = 0; i < keys.length; i++) {
+
+        var fctName = keys[i].substring(1); 
+        fctName = fctName.substring(0, 1).toUpperCase() + fctName.substring(1);
+        var functionStr = "";
+        if (path[keys[i]].hasOwnProperty("get")) {
+
+            functionStr += name + ".prototype.get" + fctName + " = function(params){\n";
+            functionStr += this.addParametersValidation(path[keys[i]], "get");
+            functionStr += "\treturn this.sendHttpRequest(params, '" + keys[i] + "', 'get');\n"
+            functionStr += "};\n"
+        }  
+
+        if (path[keys[i]].hasOwnProperty("post")) {
+
+            var contentType = path[keys[i]].post.consumes[0];
+            functionStr += name + ".prototype.set" + fctName + " = function(params){\n";
+            functionStr += this.addParametersValidation(path[keys[i]], "post");
+            functionStr += "\treturn this.sendHttpRequest(params, '" + keys[i] + "', 'post', '"  + contentType + "');\n"
+            functionStr += "};\n"
+        }  
+    }
+
+    return functionStr;
+};
+
+ProxyFactory.prototype.addParametersValidation = function(path, method) {
+    
+    var parameters = path[method].parameters; 
+    var checkParamStr = "";
+    if (parameters) {
+        
+        for (var i = 0; i < parameters.length; i++) {
+           
+            if (parameters[i].required) {
+                
+            	checkParamStr += "\tif (!params || !params." + parameters[i].name + 
+                    ") throw {errorCode: 'Missing_Parameter', errorDetail: '" + parameters[i].name + 
+                    " is required'};\n"
+            }
+        }
+    }
+    
+    return checkParamStr;
+};
+
+ProxyFactory.prototype.generateHttpCaller = function(name) {
+
+    var str = name + ".prototype.sendHttpRequest = function(params, path, method, contentType) {\n" +
+        "\tvar requestParams = {\n" + 
+        "\t\turl: this.httpEndpoint + path" + ",\n" + 
+        "\t\tmethod: method,\n" +        
+        "\t\theaders: {\n" + 
+        "\t\t\t'Authorization': 'Bearer ' + this.token \n" +
+        "\t\t}\n" +
+        "\t}\n";    
+
+    str += "\tif (contentType) {\n" +
+        "\t\trequestParams.headers['Content-Type'] = contentType;\n" +
+        "\t}\n"; 
+
+    str += "\tif(contentType == 'application/json') {\n" + 
+        "\t\t\trequestParams.bodyString=JSON.stringify(params);\n" +
+        "\t}else {\n" + 
+        "\t\trequestParams.params = params;\n" + 
+        "\t}\n";
+
+    str += "\tvar resp = http.request(requestParams);\n" +
+        "\tif (resp.status != 200) {\n" + 
+        "\t\tthrow JSON.parse(resp.body);\n" +
+        "\t}\n" +
+        "\tvar body = JSON.parse(resp.body);\n" +
+        "\tif(body.response.metadata && body.response.metadata.status == 'failure'){\n" +
+        "\t\tthrow body.response;\n" +
+        "\t}\n" + 
+        "\treturn body;\n" +        
+        "};\n"
+
+    return str;
+};
+
+ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
+
+    var data = {
+        "apsdb.name": PROXY_FOLDER + name,
+        "apsdb.update": "true",
+        "apsdb.content": JSON.stringify({
+            "ACL": {
+                "execute":"authenticated",
+                "read":"authenticated",
+                "write":"nobody"
+            },
+            "contentType": SCRIPT_CONTENT_TYPE,
+            "content": proxyDef
+        })
+    };
+
+    var resp = apsdb.callApi("SaveFile", data, null);
+    if (resp.metadata.status == "failure") {
+        throw resp;
+    }
+    
+    return resp;
+};

@@ -1,0 +1,8 @@
+const MISSING_PARAMETER_MSG = " is mandatory";
+const MISSING_PARAMETER_CODE = "Missing_Parameter";
+const SAVED_FAILED = "Save_Failed";
+const QUERY_FAILED = "Query_Failed";
+const ENTITY_NOT_FOUND = "Enity_Not_Found";
+const ENTITY_NOT_FOUND_MSG = "Could not find ";
+
+const DIRECTORY_SERVICE = "directory_service";

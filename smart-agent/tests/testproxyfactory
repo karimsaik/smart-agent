@@ -1,0 +1,48 @@
+/**
+ *
+ */
+
+
+try {
+    console.log(JSON.stringify());
+}catch(exception){
+    return exception;
+}
+
+
+var proxyfactorymodule = require("/smart-agent/services/proxyfactory");
+var descriptormodule = require("./swagger2/valid-descriptor.json");
+var jasmine = require("/modules/jasmine/boot");
+var directoryModule = require("/smart-agent/services/directory");
+var util = require("./util");
+
+jasmine.describe("TestProxyFactory", function() {
+
+    var proxyFactory = new proxyfactorymodule.ProxyFactory();
+    var proxyFileName = "smart_agent/proxies/edge_node_001_module";
+    
+    jasmine.beforeAll(function(){
+
+    }); 
+
+    jasmine.beforeEach(function() {
+
+    });
+    
+    jasmine.afterAll(function() {
+       util.deleteFile(proxyFileName);           
+    });
+
+    jasmine.it("test generate proxy", function() {
+
+        try {
+            
+            proxyFactory.generateProxy(descriptormodule.desc);
+            jasmine.expect(listAfterAdd.length).toBe(listBeforeAdd.length + 1);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });
+});
+
+jasmine.execute();

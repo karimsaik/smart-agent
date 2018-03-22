@@ -1,0 +1,66 @@
+var desc = {
+    "openapi": "3.0.0",
+    "servers": [
+        {
+            "url": "mqtt.scriptr.io"
+        },
+        {
+            "url": "api.scriptrapps.io"
+        }
+    ],
+    "info": {
+        "title": "",
+        "version": "1.0"
+    },
+    "x-node-id": "edge-node-001",
+    "x-protocols": [
+        "http",
+        "ws",
+        "mqtt"
+    ],
+    "x-category": [
+        "temperature"
+    ],
+    "paths": {
+        "/temperature": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "temperature as measured by device",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "x-mqtt-topic": "",
+    "components": {
+        "securitySchemes": {
+            "authToken": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "x-mqtt": {
+                    "type": "mqtt",
+                    "scheme": "basic"
+                }
+            }
+        }
+    }
+}

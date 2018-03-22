@@ -1,0 +1,262 @@
+var log = require("log"); log.setLevel("info");
+var document = require("document");
+var constants = require("/smart-agent/common/constants");
+var util = require("/smart-agent/common/util");
+
+const DEFAULT_CONFIG_PATH = "./service.config";
+const SERVICE_DESC_SCHEMA = "service_descriptor"; 
+const JSON_FIELDS = ["info", "paths", "securityDefinitions"];
+const ARRAY_FIELDS_WITH_JSON = ["x-servers"];
+const NODE_ID = "x-node-id"
+
+/**
+ * Implementation of a directory service, as part of the IoT middleware
+ * @class Directory
+ * @constructor
+ * @param {Object} [config]: optional configuration, if not specified, defaults to the configuration file
+ */
+function Directory(config) {
+
+    this.config = config ? config : require(DEFAULT_CONFIG_PATH);
+}
+
+/**
+ * @method register
+ * @param {Object} [descriptor] extended OpenAPI descriptor of the service
+ * @param {Object} [callback] optional callback to invoke in case of error
+ * @param {String} [callback][endpoint]: url (without the protocol) of the callback
+ * @param {String} [callback][protocol]: one of "http" or "mqtt"
+ * @throw {Error}
+ */
+Directory.prototype.register = function(descriptor, callback) {
+
+    if (!descriptor) {
+
+        log.error("Directory.add: " + constants.MISSING_PARAMETER_MSG);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory.add: " + constants.MISSING_PARAMETER_MSG
+        };
+
+        if (callback) {
+            callback.invoke(error)    
+        }
+
+        throw error;
+    }
+
+    this.addToLocalStorage(descriptor);
+    if (this.config.isMaster) {
+        this.broadcastDescritor(descriptor);
+    }
+};
+
+/**
+ * @method addToLocalStorage
+ * @param {Object} [descriptor] extended OpenAPI descriptor of the service
+ * @hrow {Error}
+ */
+Directory.prototype.addToLocalStorage = function(descriptor, callback) {
+
+    if (!descriptor) {
+
+        log.error("Directory.addToLocalStorage: " + constants.MISSING_PARAMETER_MSG);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory.add: " + constants.MISSING_PARAMETER_MSG
+        };
+
+        if (callback) {
+            callback.invoke(error)    
+        }
+
+        throw error;
+    }
+
+    var descriptorObj = {
+
+        "meta.schema": SERVICE_DESC_SCHEMA,
+        "key": descriptor[NODE_ID]  
+    };
+
+    var keys = Object.keys(descriptor);
+    for (var i = 0; i < keys.length; i++) {
+
+        var key = keys[i];
+        if (JSON_FIELDS.indexOf(key) > -1) {
+            descriptorObj[key] = JSON.stringify(descriptor[key])
+        }
+
+        if (ARRAY_FIELDS_WITH_JSON.indexOf(key) > -1){
+
+            descriptorObj[key] = [];
+            for (var x = 0; x < descriptor[key].length; x++){
+                descriptorObj[key].push(JSON.stringify(descriptor[key][x]));
+            }
+        }
+
+        if (!descriptorObj[key]) {
+            descriptorObj[key] = descriptor[key];
+        }         
+    }
+
+    var resp = document.save(descriptorObj);
+    if (resp.metadata.status == "failure") {
+
+        var msg = "Directory.addToLocalStorage: failed to save descriptor\n" + JSON.stringify(resp);
+        throw {
+
+            errorCode: constants.SAVE_FAILED,
+            errorDetail: msg
+        };
+    }
+};
+
+/**
+ * If the current directory service is the master directory, broadcast the descriptor to the subordinate directories
+ * @method broadcastDescriptor
+ * @param {Object} [descriptor] extended OpenAPI descriptor of the service
+ */
+Directory.prototype.broadcastDescriptor = function(descriptor) {
+
+    //TODO
+};
+
+/**
+ * If the current directory service is the master directory, broadcast the descriptor to the subordinate directories
+ * @method listServices
+ * @param {Object} [filter] 
+ * @param {String} [filter][nodeId]: optional, when specified, only checks for services belonging to this node id
+ * @param {String} [filter][category]: optional, when specified, only returns services of this category
+ * @param {String} [filter][protocol]: optional, when specified, only returns services of that support this protocol
+ * @param {Number} [filter][pageNumber]: optional, indicates the page number to return when paginating, defaults to 1
+ * @param {Number} [filter][resultsPerPage]: optional, indicates the number of documents per page, defaults to 50
+ * @param {String} [filter][sortOrder]: optional, can be one of "ASC" or "DESC". If specified, sort by creation date using the specified order
+ */
+Directory.prototype.listServices = function(filter) {
+
+    var requestParams = {
+        query: 'apsdb.schema = "' + SERVICE_DESC_SCHEMA + '"',
+        fields: "*"
+    };
+
+    if (filter) {
+
+        if (filter.nodeId) {
+            requestParams.query += ' and ' + NODE_ID + ' = "' + filter.nodeId + '"';
+        }
+
+        if (filter.category) {
+            requestParams.query += ' and x-category = "' + filter.category + '"';
+        }
+
+        if (filter.protocol) {
+            requestParams.query += ' and x-protocols = "' + filter.protocol + '"';
+        }
+
+        if (filter.pageNumber) {
+            requestParams.pageNumber = filter.pageNumber;
+        }
+
+        if (filter.resultsPerPage) {
+            requestParams.resultsPerPage = filter.resultsPerPage;
+        }
+
+        if (filter.sortOrder && ["ASC, DESC"].indexOf(filter.sortOrder.toUpperCase) > -1) {
+            requestParams.sort = "creationDate<date:" +  filter.sortOrder.toUpperCase + ">"
+        }
+    }
+
+    var resp = document.query(requestParams); 
+    if (resp.metadata.status == "failure") {
+
+        var msg = "Directory.listServices: error when querying descriptors\n" + JSON.stringify(resp);
+        throw {
+
+            errorCode: constants.QUERY_FAILED,
+            errorDetail: msg
+        };
+    }
+
+    var descriptorList = [];
+    for (var i = 0; i < resp.result.documents.length; i++) {
+
+        var descriptorDoc = resp.result.documents[i]; log.info("doc " +  JSON.stringify(descriptorDoc));
+        var descriptor = this.hydrate(descriptorDoc);
+        descriptorList.push(descriptor);
+    }
+
+    return descriptorList;
+}
+
+/**
+ * @method getService
+ * @param {String} service identifier (document key)
+ * @return {Object} a service descriptor 
+ * @throw {Error}
+ */
+Directory.prototype.getService = function(key) {
+    
+    if (!key) {
+
+        var msg = "Directory.getService: key cannot be null or empty";
+        log.error(msg);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: msg
+        };
+        
+        throw error;
+    }
+    
+    var resp = document.get(key);
+    if (resp.metadata.status == "failure") {
+        
+        var msg = "Directory.prototype.getService: " + constants.ENTITY_NOT_FOUND + key
+        throw {
+            
+            errorCode: constants.ENTITY_NOT_FOUND,
+            errorDetail: msgD
+        };
+    }
+    
+    return this.hydrate(resp.result);
+};
+
+/** 
+ * Turn a descriptor document into a JSON descriptor (OpenAPI)
+ * @method hydrate
+ * @param {Object} descriptorDoc: a scriptr.io document that contains a dehydrated (serialized) descriptor 
+ * @return {Object}
+ */
+Directory.prototype.hydrate = function(descriptorDoc) {
+
+    var descriptor = {};
+    descriptorDoc = util.removeDocumentMetadata(descriptorDoc);
+    var keys = Object.keys(descriptorDoc);
+    for (var j = 0; j < keys.length; j++) {
+
+        var key = keys[j];
+
+        if (JSON_FIELDS.indexOf(key) > -1) {
+            descriptor[key] = JSON.parse(descriptorDoc[key])
+        }
+
+        if (ARRAY_FIELDS_WITH_JSON.indexOf(key) > -1){
+
+            descriptor[key] = [];
+            for (var x = 0; x < descriptorDoc[key].length; x++){
+                descriptor[key].push(JSON.parse(descriptorDoc[key][x]));
+            }
+        }
+
+        if (!descriptor[key]) {
+            descriptor[key] = descriptorDoc[key];
+        }
+    }
+
+    return descriptor;
+}

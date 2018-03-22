@@ -1,0 +1,126 @@
+var document = require("document");
+
+function guid(max) {
+
+    var choice = "abcdefghijklmnopqrstuvwxyz0123456789";
+    var uid = "";
+    var length =  max && max <= choice.length -1 ? max : choice.length -1
+    for (var i = 0; i < 15; i++) {
+        uid += choice[Math.round(Math.random() * length)];
+    }
+
+    return uid;
+}
+
+function getDocument(key) {
+
+    var resp = document.get(key);    
+    if (resp.metadata.status == "failure") {
+        throw(JSON.stringify(resp.metadata));
+    }
+
+    return resp.result;
+}
+
+function deleteDocument(key) {
+
+    var resp = document.delete(key);
+    if (resp.metadata.status == "failure") {
+        throw(JSON.stringify(resp.metadata));
+    }
+
+    return resp.result;
+}
+
+// Caution: can cover up to 50 documents
+function findDocumentsByCriteria(expression) {
+
+    var queryParams = {
+
+        query: expression,
+        fields: "*"
+    };
+
+    var resp = document.query(queryParams);
+    if (resp.metadata.status == "failure") {
+        throw(JSON.stringify(resp.metadata));
+    }
+
+    return resp.result.documents;
+}
+
+// Caution: can cover up to 50 documents
+function listDocumentsOfType(schema, keyOnly) {
+
+    var queryParams = {
+
+        query: 'apsdb.schema = "' + schema + '"',
+        fields: keyOnly ? "key" : "*"
+    };
+
+    var resp = document.query(queryParams);
+    if (resp.metadata.status == "failure") {
+        throw(JSON.stringify(resp.metadata));
+    }
+
+    return resp.result.documents;
+}
+
+function deleteDocumentsOfType(schema) {
+
+    var list = listDocumentsOfType(schema);
+    for (var i = 0; i < list.length; i++) {
+
+        var resp = document.delete(list[i].key);
+        if (resp.metadata.status == "failure") {
+            console.log("Could not delete " +  list[i].key);
+        }
+    }
+}
+
+function deleteFile(fileName) {
+
+    var resp = apsdb.callApi("DeleteFile", {"apsdb.name": fileName}, null);
+    if (resp.metada.status == "failure") {
+        throw resp;
+    }
+}
+
+function getFile(fileName) {
+
+    var params = {
+
+        "apsdb.name": fileName,
+        "apsdb.scope": "app"        
+    };
+
+    var resp = apsdb.callApi("GetFileContent", params, null); 
+    if (resp.metadata.status == "failure") {       
+        throw resp;       
+    }
+
+    return resp.result;
+}
+
+function getDateAfter(startDate, days) {
+
+    var date = null;
+    if (startDate) {
+        date = (date instanceof Date) ? startDate : new Date(startDate); 
+    }else {
+        date = new Date();
+    }
+
+    var time = date.getTime(); 
+    var daysAsTime = days * 24 * 3600 * 1000; 
+    var newTime = time + daysAsTime;
+    return toShortDate(new Date(newTime));
+}
+
+function toShortDate(date) {
+
+    date = date ? date : new Date();
+    var dateStr = date.toISOString();
+    dateStr = dateStr.substring(0, dateStr.indexOf("T"));
+    return dateStr;
+}

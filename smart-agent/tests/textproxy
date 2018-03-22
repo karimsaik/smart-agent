@@ -1,0 +1,12 @@
+var nodeproxymodule = require("smart-agent/proxies/edge_node_001_module");
+try {
+	var proxy = new nodeproxymodule.edge_node_001(
+        {token:"UzIyQTgwRjc2NjptcXR0ZGV2aWNlOkEyRjlBM0MxNUI0RjM1NEIwQUY2Mjc4RUY3RkZGMkM3", 
+         username: "user1", 
+         password: "password1"
+        });
+    var resp = proxy.getTemperature({id:"office"});
+    return resp;
+}catch(exception){
+    return exception;
+}
