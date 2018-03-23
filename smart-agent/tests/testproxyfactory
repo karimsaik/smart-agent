@@ -42,7 +42,7 @@ jasmine.describe("TestProxyFactory", function() {
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));                 
         }finally{
-            util.deleteFile(node001ProxyFileName);
+           // util.deleteFile(node001ProxyFileName);
         }
     });
 

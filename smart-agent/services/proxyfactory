@@ -3,6 +3,8 @@ const MQTT_ENDPOINT = "mqtts://mqtt.scriptr.io";
 const PROXY_FOLDER = "smart-agent/proxies/";
 const SCRIPT_CONTENT_TYPE = "application/vnd.scriptr-javascript";
 const MODULE = "_module";
+const HTTP_BASED = "scriptrapps.io";
+const MQTT_BASED = "scriptr.io";
 
 var constants = require("/smart-agent/common/constants");
 
@@ -98,7 +100,9 @@ ProxyFactory.prototype.getClassNameFromDescriptor = function(descriptor) {
 ProxyFactory.prototype.generateProxy = function(descriptor) {
 
     var className = this.getClassNameFromDescriptor(descriptor);
+    var endpoints = this.getEnpointsFromDescriptor(descriptor);
     var moduleDefStr = "var http = require('http');\n";
+    moduleDefStr += "var mqtt = require('mqtt');\n";
     var classDefStr = "function " + className + "(dto){\n";
     classDefStr += "\tif (!dto || !dto.token || !dto.username || !dto.password){\n";
     classDefStr += "\t\tthrow {\n";
@@ -106,9 +110,9 @@ ProxyFactory.prototype.generateProxy = function(descriptor) {
     classDefStr += "\t\t\terrorDetail:'dto.token, dto.username, dto.password should be defined'\n";
     classDefStr += "\t\t};\n";
     classDefStr += "\t}\n";
-    classDefStr += "\tthis.httpEndpoint = dto.httpEndpoint ? dto.httpEndpoint : '" + HTTP_ENDPOINT + "';\n";
-    classDefStr += "\tthis.mqttEndpoint = dto.mqttpEndpoint ? dto.mqttpEndpoint : '" + MQTT_ENDPOINT + "';\n";
-    classDefStr += "\tthis.token = dto.token; this.username = dto.username; this.password = dto.password\n";
+    classDefStr += "\tthis.httpEndpoint = '" + (endpoints.http ? "https://" + endpoints.http : HTTP_ENDPOINT) + "';\n";
+    classDefStr += "\tthis.mqttEndpoint = '" + (endpoints.mqtt ? "mqtts://" + endpoints.mqtt : MQTT_ENDPOINT) + "';\n";
+    classDefStr += "\tthis.token = dto.token;\n\tthis.username = dto.username;\n\tthis.password = dto.password\n";
     classDefStr += "}\n"
     classDefStr += this.generateMethods(className, descriptor.paths) + "\n";
     classDefStr += this.generateHttpCaller(className) + "\n";
@@ -200,6 +204,13 @@ ProxyFactory.prototype.generateHttpCaller = function(name) {
     return str;
 };
 
+ProxyFactory.prototype.generateMQTTCaller = function(name) {
+    
+    var str = name + ".prototype.sendMQTTMessage = function(params, path) {\n" +
+        "\tif (!this.mqttClient){\n" +
+        "\t\tthis.mqttClient = mqtt.getInstance(this.broker,)"
+};
+
 ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
 
     var data = {
@@ -221,4 +232,23 @@ ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
     }
     
     return resp;
+};
+
+ProxyFactory.prototype.getEnpointsFromDescriptor = function(descriptor) {
+    
+    var servers = descriptor["x-servers"];
+    var endpoints = {};
+    
+    for (var i = 0; i < servers.length; i++) {
+        
+        if (servers[i].url.indexOf(HTTP_BASED) > -1) {
+            endpoints.http = servers[i].url;
+        } 
+        
+        if (servers[i].url.indexOf(MQTT_BASED) > -1) {
+            endpoints.mqtt = servers[i].url;
+        }
+    }
+    
+    return endpoints;
 };

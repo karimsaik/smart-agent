@@ -1,4 +1,5 @@
 var http = require('http');
+var mqtt = require('mqtt');
 function edge_node_001(dto){
 	if (!dto || !dto.token || !dto.username || !dto.password){
 		throw {
@@ -6,9 +7,11 @@ function edge_node_001(dto){
 			errorDetail:'dto.token, dto.username, dto.password should be defined'
 		};
 	}
-	this.httpEndpoint = dto.httpEndpoint ? dto.httpEndpoint : 'https://api.scriptrapps.io';
-	this.mqttEndpoint = dto.mqttpEndpoint ? dto.mqttpEndpoint : 'mqtts://mqtt.scriptr.io';
-	this.token = dto.token; this.username = dto.username; this.password = dto.password
+	this.httpEndpoint = 'https://api.scriptrapps.io';
+	this.mqttEndpoint = 'mqtts://mqtt.scriptr.io';
+	this.token = dto.token;
+	this.username = dto.username;
+	this.password = dto.password
 }
 edge_node_001.prototype.getTemperature = function(params){
 	if (!params || !params.id) throw {errorCode: 'Missing_Parameter', errorDetail: 'id is required'};
