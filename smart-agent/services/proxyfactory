@@ -2,23 +2,62 @@ const HTTP_ENDPOINT = "https://api.scriptrapps.io";
 const MQTT_ENDPOINT = "mqtts://mqtt.scriptr.io";
 const PROXY_FOLDER = "smart-agent/proxies/";
 const SCRIPT_CONTENT_TYPE = "application/vnd.scriptr-javascript";
+const MODULE = "_module";
 
+var constants = require("/smart-agent/common/constants");
+
+/**
+ * This class is used to obtain instances of proxies to remote services
+ * @class ProxyFactory
+ * @constructor
+ */
 function ProxyFactory() {
 
 }
 
-ProxyFactory.prototype.getProxy = function(descriptor) {
+/**
+ * @method getProxy
+ * @param {Object} descriptor: descriptor of the remote service
+ * @param {Object} initParams: initialization parameters, as expected by the constructor of the proxy (token, username, password
+ * @return {Object} instance of a proxy
+ */
+ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
     
-    if (!this.proxyExists()) {
-        this.generateProxy()
+    if (!descriptor) {
+        
+        throw {
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail:  "descriptor" + constants.MISSING_PARAMETER_MSG
+        };
     }
+    
+    if (!initParams) {
+        
+        throw {
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail:  "initParams" + constants.MISSING_PARAMETER_MSG
+        };
+    }
+    
+    var className = this.getClassNameFromDescriptor(descriptor);
+    if (!this.proxyExists(className)) {
+        this.generateProxy(descriptor);
+    }
+    
+    var proxyModule = require(PROXY_FOLDER + className + MODULE);
+    return new proxyModule[className](initParams);
 };
 
+/**
+ * @method proxyExists
+ * @param {String} className: the name of a proxy classe, based on a descriptor x-node-id property
+ * @return {Boolean} true if proxy script exists (already generated in /proxies), false otherwise
+ */
 ProxyFactory.prototype.proxyExists = function(className) {
 
     var params = {
     
-        "apsdb.name": className + "_module",
+        "apsdb.name": PROXY_FOLDER + className + MODULE,
         "apsdb.scope": "app"        
     };
     
@@ -35,7 +74,13 @@ ProxyFactory.prototype.proxyExists = function(className) {
     return true;
 };
 
-Proxy.prototype.getClassNameFromDescriptor = function(descriptor) {
+/**
+ * Generate a proxy class name based on descriptor's data (field x-node-id)
+ * @method getClassNameFromDescriptor
+ * @param {Object} descriptor: descriptor of the remote service
+ * @return {String} proxy class name
+ */
+ProxyFactory.prototype.getClassNameFromDescriptor = function(descriptor) {
   
     var className = descriptor["x-node-id"];
     className = className.replace(/\-/g, "_");
@@ -43,6 +88,13 @@ Proxy.prototype.getClassNameFromDescriptor = function(descriptor) {
     return className
 };
 
+/**
+ * Generate a proxy script + class based on a remote service descriptor. Proxies can be used
+ * by local scripts to invoke remote services as if they were locally objects.
+ * The proxy script is saved in /smart-agent/proxies
+ * @method generateProxy
+ * @param {Object} descriptor: descriptor of the remote service 
+ */
 ProxyFactory.prototype.generateProxy = function(descriptor) {
 
     var className = this.getClassNameFromDescriptor(descriptor);
@@ -60,7 +112,7 @@ ProxyFactory.prototype.generateProxy = function(descriptor) {
     classDefStr += "}\n"
     classDefStr += this.generateMethods(className, descriptor.paths) + "\n";
     classDefStr += this.generateHttpCaller(className) + "\n";
-    moduleDefStr = moduleDefStr + classDefStr;
+    moduleDefStr = moduleDefStr + classDefStr; 
     return this.saveProxy(className + "_module", moduleDefStr);
 };
 
@@ -151,8 +203,7 @@ ProxyFactory.prototype.generateHttpCaller = function(name) {
 ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
 
     var data = {
-        "apsdb.name": PROXY_FOLDER + name,
-        "apsdb.update": "true",
+        "apsdb.name": PROXY_FOLDER + name,       
         "apsdb.content": JSON.stringify({
             "ACL": {
                 "execute":"authenticated",

@@ -1,15 +1,3 @@
-/**
- *
- */
-
-
-try {
-    console.log(JSON.stringify());
-}catch(exception){
-    return exception;
-}
-
-
 var proxyfactorymodule = require("/smart-agent/services/proxyfactory");
 var descriptormodule = require("./swagger2/valid-descriptor.json");
 var jasmine = require("/modules/jasmine/boot");
@@ -19,8 +7,11 @@ var util = require("./util");
 jasmine.describe("TestProxyFactory", function() {
 
     var proxyFactory = new proxyfactorymodule.ProxyFactory();
-    var proxyFileName = "smart_agent/proxies/edge_node_001_module";
-    
+    var node001ProxyFileName = "smart-agent/proxies/edge_node_001_module";
+    var node002ProxyFileName = "smart-agent/proxies/edge_node_002_module";
+    var dummyFileName = "smart-agent/proxies/dummy_module";
+    var dummyClassName = "dummy";
+
     jasmine.beforeAll(function(){
 
     }); 
@@ -28,20 +19,54 @@ jasmine.describe("TestProxyFactory", function() {
     jasmine.beforeEach(function() {
 
     });
-    
+
     jasmine.afterAll(function() {
-       util.deleteFile(proxyFileName);           
+
+    });
+
+    jasmine.it("test proxy exists", function() {
+
+        try {
+            jasmine.expect(proxyFactory.proxyExists(dummyClassName)).toBe(true);  
+        }catch(exception) {
+            jasmine.fail(JSON.stringify(exception));
+        }
     });
 
     jasmine.it("test generate proxy", function() {
 
         try {
-            
-            proxyFactory.generateProxy(descriptormodule.desc);
-            jasmine.expect(listAfterAdd.length).toBe(listBeforeAdd.length + 1);
+
+            proxyFactory.generateProxy(descriptormodule.desc);   
+            jasmine.expect(util.fileExists(node001ProxyFileName)).toBe(true);                 
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));                 
+        }finally{
+            util.deleteFile(node001ProxyFileName);
+        }
+    });
+
+    jasmine.it("test getProxy", function(){
+
+        var edge_node_002_module = require("/smart-agent/proxies/edge_node_002_module");
+        try {
+
+            var modifiedDescriptor = descriptormodule.desc;
+            modifiedDescriptor["x-node-id"] = "edge-node-002";
+            var initParams = {
+                token: "some_fake_token",
+                username: "some_fake_username",
+                password: "some_fake_password"
+            };
+
+            var instance = proxyFactory.getProxy(modifiedDescriptor, initParams); 
+            jasmine.expect(instance).not.toBeNull();
+            jasmine.expect(instance instanceof edge_node_002_module.edge_node_002);
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
-        }
+        }finally{
+
+        }   
     });
 });
 

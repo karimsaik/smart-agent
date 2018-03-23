@@ -81,8 +81,18 @@ function deleteDocumentsOfType(schema) {
 function deleteFile(fileName) {
 
     var resp = apsdb.callApi("DeleteFile", {"apsdb.name": fileName}, null);
-    if (resp.metada.status == "failure") {
+    if (resp.metadata.status == "failure") {
         throw resp;
+    }
+}
+
+function fileExists(fileName) {
+    
+    try {
+        getFile(fileName);
+        return true;
+    }catch(exception) {
+        return false;
     }
 }
 

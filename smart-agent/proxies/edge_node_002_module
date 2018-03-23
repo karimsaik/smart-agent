@@ -1,0 +1,48 @@
+var http = require('http');
+function edge_node_002(dto){
+	if (!dto || !dto.token || !dto.username || !dto.password){
+		throw {
+			errorCode:'Missing_Parameter',
+			errorDetail:'dto.token, dto.username, dto.password should be defined'
+		};
+	}
+	this.httpEndpoint = dto.httpEndpoint ? dto.httpEndpoint : 'https://api.scriptrapps.io';
+	this.mqttEndpoint = dto.mqttpEndpoint ? dto.mqttpEndpoint : 'mqtts://mqtt.scriptr.io';
+	this.token = dto.token; this.username = dto.username; this.password = dto.password
+}
+edge_node_002.prototype.getTemperature = function(params){
+	if (!params || !params.id) throw {errorCode: 'Missing_Parameter', errorDetail: 'id is required'};
+	return this.sendHttpRequest(params, '/temperature', 'get');
+};
+edge_node_002.prototype.setTemperature = function(params){
+	if (!params || !params.target) throw {errorCode: 'Missing_Parameter', errorDetail: 'target is required'};
+	return this.sendHttpRequest(params, '/temperature', 'post', 'multipart/form-data');
+};
+
+edge_node_002.prototype.sendHttpRequest = function(params, path, method, contentType) {
+	var requestParams = {
+		url: this.httpEndpoint + path,
+		method: method,
+		headers: {
+			'Authorization': 'Bearer ' + this.token 
+		}
+	}
+	if (contentType) {
+		requestParams.headers['Content-Type'] = contentType;
+	}
+	if(contentType == 'application/json') {
+			requestParams.bodyString=JSON.stringify(params);
+	}else {
+		requestParams.params = params;
+	}
+	var resp = http.request(requestParams);
+	if (resp.status != 200) {
+		throw JSON.parse(resp.body);
+	}
+	var body = JSON.parse(resp.body);
+	if(body.response.metadata && body.response.metadata.status == 'failure'){
+		throw body.response;
+	}
+	return body;
+};
+
