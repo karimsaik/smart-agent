@@ -8,7 +8,8 @@ function edge_node_001(dto){
 		};
 	}
 	this.httpEndpoint = 'https://api.scriptrapps.io';
-	this.mqttEndpoint = 'mqtts://mqtt.scriptr.io';
+	this.mqttEndpoint = 'mqtt://mqtt.scriptr.io';
+	this.supportedProtocols = ["mqtt","http"];
 	this.token = dto.token;
 	this.username = dto.username;
 	this.password = dto.password
@@ -19,7 +20,13 @@ edge_node_001.prototype.getTemperature = function(params){
 };
 edge_node_001.prototype.setTemperature = function(params){
 	if (!params || !params.target) throw {errorCode: 'Missing_Parameter', errorDetail: 'target is required'};
-	return this.sendHttpRequest(params, '/temperature', 'post', 'multipart/form-data');
+	if (!params || !params.location) throw {errorCode: 'Missing_Parameter', errorDetail: 'location is required'};
+	if(this.supportedProtocols[0].toLowerCase() == 'mqtt'){ //the order of supported protocols specifies which one to use first
+		var msg = {method: 'temperature', params:params};
+		this.sendMQTTMessage(msg, 'UzIyQTgwRjc2Ng==/ccc/invoke')
+	}else{
+		return this.sendHttpRequest(params, '/temperature', 'post', 'multipart/form-data');
+	}
 };
 
 edge_node_001.prototype.sendHttpRequest = function(params, path, method, contentType) {
@@ -49,3 +56,14 @@ edge_node_001.prototype.sendHttpRequest = function(params, path, method, content
 	return body;
 };
 
+edge_node_001.prototype.sendMQTTMessage = function(msg, topic) {
+	var mqttClient = mqtt.getInstance(this.mqttEndpoint, {username:this.username, password:this.password});
+	if (mqttClient.metadata && mqttClient.metadata.status == 'failure'){
+		throw mqttClient.metadata;
+	}
+	var resp = mqttClient.publish(topic, JSON.stringify(msg));
+	if(resp.metadata.status == 'failure'){
+		throw resp;
+	}else{
+		return resp;
+	}}

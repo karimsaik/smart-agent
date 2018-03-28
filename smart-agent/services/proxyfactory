@@ -24,28 +24,28 @@ function ProxyFactory() {
  * @return {Object} instance of a proxy
  */
 ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
-    
+
     if (!descriptor) {
-        
+
         throw {
             errorCode: constants.MISSING_PARAMETER_CODE,
             errorDetail:  "descriptor" + constants.MISSING_PARAMETER_MSG
         };
     }
-    
+
     if (!initParams) {
-        
+
         throw {
             errorCode: constants.MISSING_PARAMETER_CODE,
             errorDetail:  "initParams" + constants.MISSING_PARAMETER_MSG
         };
     }
-    
+
     var className = this.getClassNameFromDescriptor(descriptor);
     if (!this.proxyExists(className)) {
         this.generateProxy(descriptor);
     }
-    
+
     var proxyModule = require(PROXY_FOLDER + className + MODULE);
     return new proxyModule[className](initParams);
 };
@@ -58,21 +58,21 @@ ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
 ProxyFactory.prototype.proxyExists = function(className) {
 
     var params = {
-    
+
         "apsdb.name": PROXY_FOLDER + className + MODULE,
         "apsdb.scope": "app"        
     };
-    
+
     var resp = apsdb.callApi("GetFileContent", params, null);
     if (resp.metadata.status == "failure") {
-        
+
         if (resp.metadata.errorCode == "FILE_NOT_FOUND") {
             return false;
         }else {
             throw resp;
         }
     }
-    
+
     return true;
 };
 
@@ -83,7 +83,7 @@ ProxyFactory.prototype.proxyExists = function(className) {
  * @return {String} proxy class name
  */
 ProxyFactory.prototype.getClassNameFromDescriptor = function(descriptor) {
-  
+
     var className = descriptor["x-node-id"];
     className = className.replace(/\-/g, "_");
     className = className.replace(/\./g, "_");   
@@ -111,11 +111,13 @@ ProxyFactory.prototype.generateProxy = function(descriptor) {
     classDefStr += "\t\t};\n";
     classDefStr += "\t}\n";
     classDefStr += "\tthis.httpEndpoint = '" + (endpoints.http ? "https://" + endpoints.http : HTTP_ENDPOINT) + "';\n";
-    classDefStr += "\tthis.mqttEndpoint = '" + (endpoints.mqtt ? "mqtts://" + endpoints.mqtt : MQTT_ENDPOINT) + "';\n";
-    classDefStr += "\tthis.token = dto.token;\n\tthis.username = dto.username;\n\tthis.password = dto.password\n";
+    classDefStr += "\tthis.mqttEndpoint = '" + (endpoints.mqtt ? "mqtt://" + endpoints.mqtt : MQTT_ENDPOINT) + "';\n";
+    classDefStr += "\tthis.supportedProtocols = " + JSON.stringify(descriptor["x-protocols"]) + ";\n"; 
+    classDefStr += "\tthis.token = dto.token;\n\tthis.username = dto.username;\n\tthis.password = dto.password\n";  
     classDefStr += "}\n"
     classDefStr += this.generateMethods(className, descriptor.paths) + "\n";
     classDefStr += this.generateHttpCaller(className) + "\n";
+    classDefStr += this.generateMQTTCaller(className) + "\n";
     moduleDefStr = moduleDefStr + classDefStr; 
     return this.saveProxy(className + "_module", moduleDefStr);
 };
@@ -125,12 +127,14 @@ ProxyFactory.prototype.generateMethods = function(name, path) {
     var keys = Object.keys(path);
     for (var i = 0; i < keys.length; i++) {
 
-        var fctName = keys[i].substring(1); 
-        fctName = fctName.substring(0, 1).toUpperCase() + fctName.substring(1);
+        var fctName = keys[i].substring(1);  // path to script
+        var slashIndex = fctName.lastIndexOf("/");
+        var fctNameUpper = fctName.substring(slashIndex > -1 ? slashIndex + 1 : 0);
+        fctNameUpper = fctNameUpper.substring(0, 1).toUpperCase() + fctNameUpper.substring(1);
         var functionStr = "";
         if (path[keys[i]].hasOwnProperty("get")) {
 
-            functionStr += name + ".prototype.get" + fctName + " = function(params){\n";
+            functionStr += name + ".prototype.get" + fctNameUpper + " = function(params){\n";
             functionStr += this.addParametersValidation(path[keys[i]], "get");
             functionStr += "\treturn this.sendHttpRequest(params, '" + keys[i] + "', 'get');\n"
             functionStr += "};\n"
@@ -139,9 +143,15 @@ ProxyFactory.prototype.generateMethods = function(name, path) {
         if (path[keys[i]].hasOwnProperty("post")) {
 
             var contentType = path[keys[i]].post.consumes[0];
-            functionStr += name + ".prototype.set" + fctName + " = function(params){\n";
+            functionStr += name + ".prototype.set" + fctNameUpper + " = function(params){\n";
             functionStr += this.addParametersValidation(path[keys[i]], "post");
-            functionStr += "\treturn this.sendHttpRequest(params, '" + keys[i] + "', 'post', '"  + contentType + "');\n"
+            functionStr +=  
+                "\tif(this.supportedProtocols[0].toLowerCase() == 'mqtt'){ //the order of supported protocols specifies which one to use first\n";
+            functionStr +=	"\t\tvar msg = {method: '" + fctName + "', params:params};\n";
+            functionStr += "\t\tthis.sendMQTTMessage(msg, '" + path[keys[i]]["post"]["x-mqtt-topic"] + "')\n";
+            functionStr +=  "\t}else{\n"; 
+            functionStr += "\t\treturn this.sendHttpRequest(params, '" + keys[i] + "', 'post', '"  + contentType + "');\n" ;
+            functionStr += "\t}\n";
             functionStr += "};\n"
         }  
     }
@@ -150,22 +160,22 @@ ProxyFactory.prototype.generateMethods = function(name, path) {
 };
 
 ProxyFactory.prototype.addParametersValidation = function(path, method) {
-    
+
     var parameters = path[method].parameters; 
     var checkParamStr = "";
     if (parameters) {
-        
+
         for (var i = 0; i < parameters.length; i++) {
-           
+
             if (parameters[i].required) {
-                
-            	checkParamStr += "\tif (!params || !params." + parameters[i].name + 
+
+                checkParamStr += "\tif (!params || !params." + parameters[i].name + 
                     ") throw {errorCode: 'Missing_Parameter', errorDetail: '" + parameters[i].name + 
                     " is required'};\n"
             }
         }
     }
-    
+
     return checkParamStr;
 };
 
@@ -204,11 +214,22 @@ ProxyFactory.prototype.generateHttpCaller = function(name) {
     return str;
 };
 
-ProxyFactory.prototype.generateMQTTCaller = function(name) {
+ProxyFactory.prototype.generateMQTTCaller = function(name, topic) {
+
+    var str = name + ".prototype.sendMQTTMessage = function(msg, topic) {\n" +
+        "\tvar mqttClient = mqtt.getInstance(this.mqttEndpoint, {username:this.username, password:this.password});\n" + 
+        "\tif (mqttClient.metadata && mqttClient.metadata.status == 'failure'){\n" +
+        "\t\tthrow mqttClient.metadata;\n" +
+        "\t}\n" +
+        "\tvar resp = mqttClient.publish(topic, JSON.stringify(msg));\n" +
+        "\tif(resp.metadata.status == 'failure'){\n" + 
+        "\t\tthrow resp;\n" + 
+        "\t}else{\n" +
+        "\t\treturn resp;\n" + 
+        "\t}\n" +
+        "}";
     
-    var str = name + ".prototype.sendMQTTMessage = function(params, path) {\n" +
-        "\tif (!this.mqttClient){\n" +
-        "\t\tthis.mqttClient = mqtt.getInstance(this.broker,)"
+    return str;
 };
 
 ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
@@ -230,25 +251,25 @@ ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
     if (resp.metadata.status == "failure") {
         throw resp;
     }
-    
+
     return resp;
 };
 
 ProxyFactory.prototype.getEnpointsFromDescriptor = function(descriptor) {
-    
+
     var servers = descriptor["x-servers"];
     var endpoints = {};
-    
+
     for (var i = 0; i < servers.length; i++) {
-        
+
         if (servers[i].url.indexOf(HTTP_BASED) > -1) {
             endpoints.http = servers[i].url;
         } 
-        
+
         if (servers[i].url.indexOf(MQTT_BASED) > -1) {
             endpoints.mqtt = servers[i].url;
         }
     }
-    
+
     return endpoints;
 };

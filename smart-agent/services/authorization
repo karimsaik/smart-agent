@@ -1,0 +1,54 @@
+var log = require("log"); log.setLevel("info");
+var proxyfactoryModule =  require("/smart-agent/service/proxyfactory");
+var constants = require("/smart-agents/constants");
+
+/**
+ * Handles the authentication of remote requests
+ * @class Authorization
+ * @constructor
+ */
+function Authorization() {
+    this.proxyFactory = new proxyfactoryModule.ProxyFactory();
+}
+
+Authorization.prototype.authenticate = function(credentials) {
+        
+    
+    if (credentials.token) {
+      return;  
+    }
+    
+    if (credentials.user) {
+        return;
+    }
+    
+    throw {
+        errorCode: constants.INVALID_AUTHENTICATION_MODE,
+        errorCode: "The provided credential objet does not contain ant"
+    }
+};
+
+/**
+ * Convey a token that was reveived in the "x-auhtorization" header to the master agent in order to
+ * authenticate it. If the master agent is able to authenticate the corresponding device as part of  
+ * the collaboration boundary, add the device locally and generate a token 
+ */
+Authorization.prototype.authenticateFromMaster = function(credentials) {
+
+    var masterAgent = this.proxyFactory.getMasterAgentProxy();
+};
+
+/**
+ * Get the credentials needed to invoke remote services on a third party node
+ * First checks if credentials are available locally, if not, should ask for credentials agains the 3rd party
+ * by sending credentials used to authenticate at master. The latter will provide temporary credentials to the 
+ * caller
+ */
+Authorization.prototype.getCredentialsForTarget = function(credentials) {
+
+    
+};
+
+Authorization.prototype.storeToken = function(credentials) {
+
+};

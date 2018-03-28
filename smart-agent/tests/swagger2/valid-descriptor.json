@@ -14,10 +14,9 @@ var desc = {
             "description": "edgenode001"
         }
     ],
-    "x-protocols": [
-        "http",
-        "ws",
-        "mqtt"
+    "x-protocols": [  
+        "mqtt",
+        "http"
     ],
     "x-category": "thermostat",
     "paths": {
@@ -43,15 +42,21 @@ var desc = {
             },
             "post":{
                 "consumes": [
-                  "multipart/form-data"
+                    "multipart/form-data"
                 ],
                 "parameters":[
-                  {
-                    "name": "target",
-                    "type": "number",
-                    "required": true,
-                    "in": "formData"
-                  }
+                    {
+                        "name": "target",
+                        "type": "number",
+                        "required": true,
+                        "in": "formData"
+                    },
+                    {
+                        "name": "location",
+                        "type": "string",
+                        "required": true,
+                        "in": "formData"
+                    }
                 ],
                 "responses": {
                     "200": {
