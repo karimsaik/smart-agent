@@ -1,0 +1,14 @@
+var group = require("group");
+
+createGroups();
+subscribeToMasterAgentTopics();
+
+function createGroups() {
+
+    group.create("admin");
+    group.create("authorized_devices");
+}
+
+function subscribeToMasterAgentTopics() {
+    
+}

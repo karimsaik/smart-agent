@@ -1,0 +1,64 @@
+var log = require("log"); log.setLevel("info");
+var http = require("http");
+var mqtt = require("mqtt");
+var constants = require("/smart-agent/common/constants");
+var config = require("smart-agent/init/config");
+
+/**
+ * A proxy to a master node. This proxy is not generated from a descriptor
+ * @class MasterProxy
+ * @constructor
+ */
+function MasterProxy() {
+    
+}
+
+/**
+ * Whenever a new service (descriptor) is added on a node, the corresponding smart agent invokes this method
+ * to publish the update on its master node that will broadcast the descriptor to all the node that are part
+ * of the same collaboration boundaries
+ * @method publishDescriptor
+ * @param {Object} descriptor: a service descriptor
+ * @return {Object} { status : "success"}
+ * @throws {Error}
+ */
+MasterProxy.prototype.publishDescriptor = function(descriptor) {
+  
+    if (!descriptor) {
+        throw {
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            
+            errorDetail: "descriptor" + constants.MISSING_PARAMETER_MSG
+        };
+    }
+    
+    var mqttClient = mqtt.getInstance(config.masterAgent.mqtt, {username: config.masterAgent.username, password: config.masterAgent.password});
+    if (mqttClient.metadata && mqttClient.metadata.status == "failure") {
+        
+        throw {
+            errorCode: constants.MQTT_CREATE_INSTANCE_FAILED,
+            errorDetail: "Could not create MQTT client instance using  "
+        }
+    }
+    
+    var resp = mqttClient.publish(config.pubsubTopic, JSON.stringify({descriptor: descriptor}));
+    if (resp.metadata.status == "failure") {
+        log ("Failed to publish descriptor " + descriptor + "\n" + JSON.stringify(resp));
+    }
+    
+    return resp.result;
+};
+
+MasterProxy.prototype.getMQTTClient = function() {
+    
+    var mqttClient = mqtt.getInstance(config.masterAgent.mqtt, {username: config.masterAgent.username, password: config.masterAgent.password});
+    if (mqttClient.metadata && mqttClient.metadata.status == "failure") {
+        
+        throw {
+            errorCode: constants.MQTT_CREATE_INSTANCE_FAILED,
+            errorDetail: "Could not create MQTT client instance using  "
+        }
+    }
+    
+    return mqttClient;
+}

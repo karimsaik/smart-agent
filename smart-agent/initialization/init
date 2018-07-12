@@ -1,4 +1,0 @@
-var group = require("group");
-
-group.create("admin");
-group.create("authorized_devices");

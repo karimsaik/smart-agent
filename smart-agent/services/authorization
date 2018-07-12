@@ -16,11 +16,8 @@ Authorization.prototype.authenticate = function(credentials) {
     
     if (credentials.token) {
       return;  
-    }
-    
-    if (credentials.user) {
-        return;
-    }
+    }    
+   
     
     throw {
         errorCode: constants.INVALID_AUTHENTICATION_MODE,
@@ -44,7 +41,7 @@ Authorization.prototype.authenticateFromMaster = function(credentials) {
  * by sending credentials used to authenticate at master. The latter will provide temporary credentials to the 
  * caller
  */
-Authorization.prototype.getCredentialsForTarget = function(credentials) {
+Authorization.prototype.getCredentialsForService = function(credentials) {
 
     
 };

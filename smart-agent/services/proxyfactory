@@ -18,6 +18,17 @@ function ProxyFactory() {
 }
 
 /**
+ * A specific getProxy method that returns a proxy to the master agent of the current node
+ * @method getMasterAgentProxy
+ * @return {Object} master agent proxy
+ * @throw {Error} : if the current agent is the master agent
+ */
+ProxyFactory.prototype.getMasterAgentProxy = function() {
+    
+    //if (){}
+}
+
+/**
  * @method getProxy
  * @param {Object} descriptor: descriptor of the remote service
  * @param {Object} initParams: initialization parameters, as expected by the constructor of the proxy (token, username, password
@@ -52,7 +63,7 @@ ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
 
 /**
  * @method proxyExists
- * @param {String} className: the name of a proxy classe, based on a descriptor x-node-id property
+ * @param {String} className: the name of a proxy class, based on a descriptor x-node-id property
  * @return {Boolean} true if proxy script exists (already generated in /proxies), false otherwise
  */
 ProxyFactory.prototype.proxyExists = function(className) {

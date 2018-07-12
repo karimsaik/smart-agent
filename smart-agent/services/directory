@@ -3,11 +3,12 @@ var document = require("document");
 var constants = require("/smart-agent/common/constants");
 var util = require("/smart-agent/common/util");
 
-const DEFAULT_CONFIG_PATH = "./service.config";
+const DEFAULT_CONFIG_PATH = "smart-agents/setup/config";
 const SERVICE_DESC_SCHEMA = "service_descriptor"; 
 const JSON_FIELDS = ["info", "paths", "securityDefinitions"];
 const ARRAY_FIELDS_WITH_JSON = ["x-servers"];
-const NODE_ID = "x-node-id"
+const NODE_ID = "x-node-id";
+const MASTER = "master";
 
 /**
  * Implementation of a directory service, as part of the IoT middleware
@@ -47,7 +48,7 @@ Directory.prototype.register = function(descriptor, callback) {
     }
 
     this.addToLocalStorage(descriptor);
-    if (this.config.isMaster) {
+    if (this.config.role == MASTER) {
         this.broadcastDescritor(descriptor);
     }
 };

@@ -1,0 +1,20 @@
+/***************************************
+ * To be replaced with persisted config
+ **************************************/
+
+var role = "collaborator"; // one of master or collaborator
+
+/*
+ * Required data about the corresponding master node
+ */
+var masterAgent = {
+    http: "https://iotfun.scriptrapps.io", 
+    mqtt: "mqtt://mqtt.scriptr.io",
+    authenticate: "smart-agent/api/authenticate",
+    token: "UzIyQTgwRjc2Njpub2RlMDAxOjU3QTQ1MTQyM0JGOTAzMDc3RTE4OENENTUxRDBBNTcx",
+    username: "UzIyQTgwRjc2NkBzY3JpcHRy:UzIyQTgwRjc2Njpub2RlMDAxQHNjcmlwdHI=",
+    password: "UzIyQTgwRjc2Njpub2RlMDAxOjU3QTQ1MTQyM0JGOTAzMDc3RTE4OENENTUxRDBBNT",
+    collaborationTopic: "collaboration_topic",
+    pubsubTopic: "UzIyQTgwRjc2Ng==/collaboration_topic/message",
+    invokeTopic: "UzIyQTgwRjc2Ng==/collaboration_topic/invoke"
+};
