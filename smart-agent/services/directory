@@ -2,9 +2,12 @@ var log = require("log"); log.setLevel("info");
 var document = require("document");
 var constants = require("/smart-agent/common/constants");
 var util = require("/smart-agent/common/util");
+var proxyFactory = require("smart-agent/services/proxyfactory");
+var document = require("document");
 
-const DEFAULT_CONFIG_PATH = "smart-agents/setup/config";
+const DEFAULT_CONFIG_PATH = "smart-agent/setup/config";
 const SERVICE_DESC_SCHEMA = "service_descriptor"; 
+const DESC_CHANNEL = "channel_descriptor";
 const JSON_FIELDS = ["info", "paths", "securityDefinitions"];
 const ARRAY_FIELDS_WITH_JSON = ["x-servers"];
 const NODE_ID = "x-node-id";
@@ -33,11 +36,11 @@ Directory.prototype.register = function(descriptor, callback) {
 
     if (!descriptor) {
 
-        log.error("Directory.add: " + constants.MISSING_PARAMETER_MSG);
+        log.error("Directory.register: descriptor " + constants.MISSING_PARAMETER_MSG);
         var error = {
 
             errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.add: " + constants.MISSING_PARAMETER_MSG
+            errorDetail: "Directory.register: descriptor " + constants.MISSING_PARAMETER_MSG
         };
 
         if (callback) {
@@ -47,11 +50,60 @@ Directory.prototype.register = function(descriptor, callback) {
         throw error;
     }
 
+    var resp = document.get(descriptor["x-node-id"]);
+    //log.info(resp);
+    if (resp.result){
+
+        throw{
+
+            errorCode: "Duplicate_Descriptor",
+            errorDetail: descriptor["x-node-id"] + " is already registered"
+        };
+    }
+
     this.addToLocalStorage(descriptor);
     if (this.config.role == MASTER) {
-        this.broadcastDescritor(descriptor);
+
+        this.broadcastDescriptor(descriptor);
+    }else{
+
+        this.sendToMaster(descriptor);
     }
 };
+
+Directory.prototype.sendToMaster = function(descriptor) {
+    
+    if (!descriptor) {
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory.sendToMaster: desscriptor " + constants.MISSING_PARAMETER_MSG
+        };
+
+        throw error;
+    }
+    try{
+        
+        var masterDescriptor = this.config.masterNodeDescriptor;
+        log.info("masterDescriptor: " + JSON.stringify(masterDescriptor));
+        var initParams = {
+            token: this.config.masterAgent.token,
+            username: this.config.masterAgent.username,
+            password: this.config.masterAgent.password
+        };
+        var proxy = new proxyFactory.ProxyFactory();
+        var masterProxy = proxy.getProxy(masterDescriptor, initParams);
+        //var master_node_001_module = require("/smart-agent/proxies/master_node_001_module");
+        //log.info(masterProxy instanceof master_node_001_module.master_node_001);
+        masterProxy.setRegister({"descriptor": descriptor});
+    }catch(exception){
+        
+        return exception;
+    }
+
+
+
+}
 
 /**
  * @method addToLocalStorage
@@ -121,8 +173,21 @@ Directory.prototype.addToLocalStorage = function(descriptor, callback) {
  * @param {Object} [descriptor] extended OpenAPI descriptor of the service
  */
 Directory.prototype.broadcastDescriptor = function(descriptor) {
+    log.info("broadcastDescriptor descriptor: " + JSON.stringify(descriptor));
+    if (!descriptor) {
 
-    //TODO
+        log.error("Directory.broadcastDescriptor: " + constants.MISSING_PARAMETER_MSG);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory.broadcastDescriptor: " + constants.MISSING_PARAMETER_MSG
+        };
+
+        throw error;
+    }
+
+    publish(DESC_CHANNEL, descriptor);
+
 };
 
 /**
@@ -199,7 +264,7 @@ Directory.prototype.listServices = function(filter) {
  * @throw {Error}
  */
 Directory.prototype.getService = function(key) {
-    
+
     if (!key) {
 
         var msg = "Directory.getService: key cannot be null or empty";
@@ -209,22 +274,57 @@ Directory.prototype.getService = function(key) {
             errorCode: constants.MISSING_PARAMETER_CODE,
             errorDetail: msg
         };
-        
+
         throw error;
     }
-    
+
     var resp = document.get(key);
     if (resp.metadata.status == "failure") {
-        
+
         var msg = "Directory.prototype.getService: " + constants.ENTITY_NOT_FOUND + key
         throw {
-            
+
             errorCode: constants.ENTITY_NOT_FOUND,
-            errorDetail: msgD
+            errorDetail: msg
         };
     }
-    
+
     return this.hydrate(resp.result);
+};
+
+/**
+ * Updates the fields of a given document
+ * @method updateService
+ * @param {Object} the list of the fields to be changed as well as the document's key
+ */
+Directory.prototype.updateService = function(params) {
+
+    if (!params) {
+        var msg = "Directory.updateService: parameters cannot be null or empty";
+        log.error(msg);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: msg
+        };
+
+        throw error;
+    }
+
+    if (!params.key) {
+        var msg = "Directory.updateService: key cannot be null or empty";
+        log.error(msg);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: msg
+        };
+
+        throw error;
+    }
+
+    //log.info(JSON.stringify(params));
+    document.update(params);
 };
 
 /** 
