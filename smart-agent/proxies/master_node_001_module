@@ -1,0 +1,67 @@
+var http = require('http');
+var mqtt = require('mqtt');
+
+function master_node_001(dto){
+	if (!dto || !dto.token || !dto.username || !dto.password){
+		throw {
+			errorCode:'Missing_Parameter',
+			errorDetail:'dto.token, dto.username, dto.password should be defined'
+		};
+	}
+	this.httpEndpoint = 'https://api.scriptrapps.io';
+	this.mqttEndpoint = 'mqtt://mqtt.scriptr.io';
+	this.supportedProtocols = ["http"];
+	this.token = dto.token;
+	this.username = dto.username;
+	this.password = dto.password
+}
+master_node_001.prototype.setRegister = function(params){
+    
+    if (!params || !params.descriptor) throw {errorCode: 'Missing_Parameter', errorDetail: 'descriptor is required'};
+	if(this.supportedProtocols[0].toLowerCase() == 'mqtt'){ //the order of supported protocols specifies which one to use first
+		var msg = {method: 'smart-agent/api/register', params:params};
+		this.sendMQTTMessage(msg, 'UzIyQTgwRjc2Ng==/ccc/invoke')
+	}else{
+		return this.sendHttpRequest(params, '/smart-agent/api/register', 'post', 'application/json');
+	}
+};
+
+master_node_001.prototype.sendHttpRequest = function(params, path, method, contentType) {
+	var requestParams = {
+		url: this.httpEndpoint + path,
+		method: method,
+		headers: {
+			'Authorization': 'Bearer ' + this.token 
+		}
+	}
+	if (contentType) {
+		requestParams.headers['Content-Type'] = contentType;
+	}
+	if(contentType == 'application/json') {
+			requestParams.bodyString=JSON.stringify(params);
+	}else {
+		requestParams.params = params;
+	}
+	var resp = http.request(requestParams);
+	if (resp.status != 200) {
+		throw JSON.parse(resp.body);
+	}
+	var body = JSON.parse(resp.body);
+	if(body.response.metadata && body.response.metadata.status == 'failure'){
+		throw body.response;
+	}
+	return body;
+};
+
+master_node_001.prototype.sendMQTTMessage = function(msg, topic) {
+	var mqttClient = mqtt.getInstance(this.mqttEndpoint, {username:this.username, password:this.password});
+	if (mqttClient.metadata && mqttClient.metadata.status == 'failure'){
+		throw mqttClient.metadata;
+	}
+	var resp = mqttClient.publish(topic, JSON.stringify(msg));
+	if(resp.metadata.status == 'failure'){
+		throw resp;
+	}else{
+		return resp;
+	}
+}
