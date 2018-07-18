@@ -1,9 +1,13 @@
 /***************************************
  * To be replaced with persisted config
  **************************************/
-
+var log = require("log");
+log.setLevel("info");
 var role = "collaborator"; // one of master or collaborator
 
+var masterNode = require("/smart-agent/tests/swagger2/master-descriptor");
+var masterNodeDescriptor = masterNode.desc;
+//log.info(JSON.stringify(masterNodeDescriptor));
 /*
  * Required data about the corresponding master node
  */
@@ -11,10 +15,10 @@ var masterAgent = {
     http: "https://iotfun.scriptrapps.io", 
     mqtt: "mqtt://mqtt.scriptr.io",
     authenticate: "smart-agent/api/authenticate",
-    token: "UzIyQTgwRjc2Njpub2RlMDAxOjU3QTQ1MTQyM0JGOTAzMDc3RTE4OENENTUxRDBBNTcx",
-    username: "UzIyQTgwRjc2NkBzY3JpcHRy:UzIyQTgwRjc2Njpub2RlMDAxQHNjcmlwdHI=",
-    password: "UzIyQTgwRjc2Njpub2RlMDAxOjU3QTQ1MTQyM0JGOTAzMDc3RTE4OENENTUxRDBBNT",
+    token: "WEY5MkMxNDdDNjpNYXN0ZXJOb2RlOkZDODk1MzgxRURERDQ5REI1NEEwRTg4NkU3RkFGMkQy",
+    username: "WEY5MkMxNDdDNkBzY3JpcHRy:WEY5MkMxNDdDNjpNYXN0ZXJOb2RlQHNjcmlwdHI=",
+    password: "WEY5MkMxNDdDNjpNYXN0ZXJOb2RlOkZDODk1MzgxRURERDQ5REI1NEEwRTg4NkU3RkFGMkQy",
     collaborationTopic: "collaboration_topic",
-    pubsubTopic: "UzIyQTgwRjc2Ng==/collaboration_topic/message",
-    invokeTopic: "UzIyQTgwRjc2Ng==/collaboration_topic/invoke"
+    pubsubTopic: "WEY5MkMxNDdDNg==/channel_descriptor/message",
+    invokeTopic: "WEY5MkMxNDdDNg==/channel_descriptor/invoke"
 };
