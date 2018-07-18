@@ -1,0 +1,11 @@
+var directory = require("../services/directory");
+
+try{
+    
+    var id = request.parameters.id;
+    var dir = new directory.Directory();
+    return dir.getService(id);
+}catch(exception){
+    
+    return exception;
+}

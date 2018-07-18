@@ -1,0 +1,11 @@
+var directory = require("smart-agent/services/directory");
+
+try{
+    
+    var params = request.body.params;
+    var dir = new directory.Directory();
+    dir.updateService(params);
+}catch(exception) {
+    
+    return exception;
+}

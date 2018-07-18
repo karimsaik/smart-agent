@@ -1,0 +1,24 @@
+var directory = require("../services/directory");
+
+try{
+    
+    var dir = new directory.Directory();
+    var nodeId = request.parameters.nodeId;
+    var category = request.parameters.category;
+    var protocol = request.parameters.protocol;
+    var pageNumber = request.parameters.pageNumber;
+    var resultsPerPage = request.parameters.resultsPerPage;
+    var sortOrder = request.parameters.sortOrder;
+    
+    var filter = {
+        "nodeId": nodeId,
+        "category": category,
+        "protocol": protocol,
+        "pageNumber": pageNumber,
+        "resultsPerPage": resultsPerPage,
+        "sortOrder": sortOrder
+    }
+    return dir.listServices(filter);
+}catch(exception){
+    return exception;
+}
