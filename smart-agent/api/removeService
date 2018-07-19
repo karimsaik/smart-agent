@@ -1,0 +1,12 @@
+var directory = require("smart-agent/services/directory");
+var log = require("log");
+log.setLevel("info");
+try{
+
+    var descriptor = request.parameters.id;
+    var dir = new directory.Directory();
+    dir.removeService(id);
+}catch(exception) {
+    
+    return exception;
+}
