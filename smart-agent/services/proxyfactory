@@ -5,8 +5,8 @@ const SCRIPT_CONTENT_TYPE = "application/vnd.scriptr-javascript";
 const MODULE = "_module";
 const HTTP_BASED = "scriptrapps.io";
 const MQTT_BASED = "scriptr.io";
-
 var constants = require("/smart-agent/common/constants");
+var config = require("smart-agent/setup/config");
 
 /**
  * This class is used to obtain instances of proxies to remote services
@@ -24,8 +24,22 @@ function ProxyFactory() {
  * @throw {Error} : if the current agent is the master agent
  */
 ProxyFactory.prototype.getMasterAgentProxy = function() {
-    
-    //if (){}
+
+    if(config.role == "master"){
+        throw{
+            errorCode: "Role not allowed",
+            errorDetail: "Node cannot be master"
+        }
+    }
+    var masterDescriptor = require(config.masterNodeDescriptor);
+
+    var initParams = {
+        token: config.masterAgent.token,
+        username: config.masterAgent.username,
+        password: config.masterAgent.password
+    };
+
+    this.getProxy(masterDescriptor, initParams);
 }
 
 /**
@@ -136,13 +150,14 @@ ProxyFactory.prototype.generateProxy = function(descriptor) {
 ProxyFactory.prototype.generateMethods = function(name, path) {
 
     var keys = Object.keys(path);
+    var functionStr = "";
     for (var i = 0; i < keys.length; i++) {
 
         var fctName = keys[i].substring(1);  // path to script
         var slashIndex = fctName.lastIndexOf("/");
         var fctNameUpper = fctName.substring(slashIndex > -1 ? slashIndex + 1 : 0);
         fctNameUpper = fctNameUpper.substring(0, 1).toUpperCase() + fctNameUpper.substring(1);
-        var functionStr = "";
+
         if (path[keys[i]].hasOwnProperty("get")) {
 
             functionStr += name + ".prototype.get" + fctNameUpper + " = function(params){\n";
@@ -239,7 +254,7 @@ ProxyFactory.prototype.generateMQTTCaller = function(name, topic) {
         "\t\treturn resp;\n" + 
         "\t}\n" +
         "}";
-    
+
     return str;
 };
 
