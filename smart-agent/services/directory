@@ -7,11 +7,12 @@ var document = require("document");
 
 const DEFAULT_CONFIG_PATH = "smart-agent/setup/config";
 const SERVICE_DESC_SCHEMA = "service_descriptor"; 
-const DESC_CHANNEL = "channel_descriptor";
+const DESC_CHANNEL = "collaboration_topic";
 const JSON_FIELDS = ["info", "paths", "securityDefinitions"];
 const ARRAY_FIELDS_WITH_JSON = ["x-servers"];
 const NODE_ID = "x-node-id";
 const MASTER = "master";
+const PROXY_FOLDER = "smart-agent/proxies/";
 
 /**
  * Implementation of a directory service, as part of the IoT middleware
@@ -50,14 +51,14 @@ Directory.prototype.register = function(descriptor, callback) {
         throw error;
     }
 
-    var resp = document.get(descriptor["x-node-id"]);
+    var resp = document.get(descriptor[NODE_ID]);
     //log.info(resp);
     if (resp.result){
 
         throw{
 
             errorCode: "Duplicate_Descriptor",
-            errorDetail: descriptor["x-node-id"] + " is already registered"
+            errorDetail: descriptor[NODE_ID] + " is already registered"
         };
     }
 
@@ -67,25 +68,24 @@ Directory.prototype.register = function(descriptor, callback) {
         this.broadcastDescriptor(descriptor);
     }else{
 
-        this.sendToMaster(descriptor);
+        this.sendDescriptorToMaster(descriptor);
     }
 };
 
-Directory.prototype.sendToMaster = function(descriptor) {
-    
+Directory.prototype.sendDescriptorToMaster = function(descriptor) {
+
     if (!descriptor) {
         var error = {
 
             errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.sendToMaster: desscriptor " + constants.MISSING_PARAMETER_MSG
+            errorDetail: "Directory.sendDescriptorToMaster: descriptor " + constants.MISSING_PARAMETER_MSG
         };
 
         throw error;
     }
     try{
-        
+
         var masterDescriptor = this.config.masterNodeDescriptor;
-        log.info("masterDescriptor: " + JSON.stringify(masterDescriptor));
         var initParams = {
             token: this.config.masterAgent.token,
             username: this.config.masterAgent.username,
@@ -93,17 +93,13 @@ Directory.prototype.sendToMaster = function(descriptor) {
         };
         var proxy = new proxyFactory.ProxyFactory();
         var masterProxy = proxy.getProxy(masterDescriptor, initParams);
-        //var master_node_001_module = require("/smart-agent/proxies/master_node_001_module");
-        //log.info(masterProxy instanceof master_node_001_module.master_node_001);
+
         masterProxy.setRegister({"descriptor": descriptor});
     }catch(exception){
-        
+
         return exception;
     }
-
-
-
-}
+};
 
 /**
  * @method addToLocalStorage
@@ -173,7 +169,7 @@ Directory.prototype.addToLocalStorage = function(descriptor, callback) {
  * @param {Object} [descriptor] extended OpenAPI descriptor of the service
  */
 Directory.prototype.broadcastDescriptor = function(descriptor) {
-    log.info("broadcastDescriptor descriptor: " + JSON.stringify(descriptor));
+
     if (!descriptor) {
 
         log.error("Directory.broadcastDescriptor: " + constants.MISSING_PARAMETER_MSG);
@@ -186,8 +182,7 @@ Directory.prototype.broadcastDescriptor = function(descriptor) {
         throw error;
     }
 
-    publish(DESC_CHANNEL, descriptor);
-
+    log.info("Broadcasting..");
 };
 
 /**
@@ -281,7 +276,7 @@ Directory.prototype.getService = function(key) {
     var resp = document.get(key);
     if (resp.metadata.status == "failure") {
 
-        var msg = "Directory.prototype.getService: " + constants.ENTITY_NOT_FOUND + key
+        var msg = "Directory.prototype.getService: " + constants.ENTITY_NOT_FOUND + key;
         throw {
 
             errorCode: constants.ENTITY_NOT_FOUND,
@@ -293,14 +288,17 @@ Directory.prototype.getService = function(key) {
 };
 
 /**
- * Updates the fields of a given document
+ * Updates document if exists, registers it if it doesn't
  * @method updateService
- * @param {Object} the list of the fields to be changed as well as the document's key
+ * @param {Object} [descriptor] extended OpenAPI descriptor of the service
  */
-Directory.prototype.updateService = function(params) {
+Directory.prototype.updateService = function(descriptor) {
 
-    if (!params) {
-        var msg = "Directory.updateService: parameters cannot be null or empty";
+    log.info("starting Directory.updateService..");
+    log.info("from Directory.updateService: " + JSON.stringify(descriptor));
+    
+    if (!descriptor) {
+        var msg = "Directory.updateService: descriptor " + constants.MISSING_PARAMETER_MSG;
         log.error(msg);
         var error = {
 
@@ -310,22 +308,140 @@ Directory.prototype.updateService = function(params) {
 
         throw error;
     }
-
-    if (!params.key) {
-        var msg = "Directory.updateService: key cannot be null or empty";
-        log.error(msg);
-        var error = {
-
-            errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: msg
-        };
-
-        throw error;
+	log.info("node id: " + descriptor[NODE_ID]);
+    //log.info("Directory.updateService document.get.result: " + JSON.stringify(document.get(descriptor[NODE_ID]))); //to check
+    if (!document.get(descriptor[NODE_ID]).result) {
+		log.info("Directory.updatService descriptor id: " + descriptor[NODE_ID]);
+        log.info("No descriptor found to update, registering a new one..");
+        this.register(descriptor);
+        return;
     }
+	
+    log.info("Descriptor found, updating..");
+    this.addToLocalStorage(descriptor);
+    this.removeProxyFile(descriptor[NODE_ID]);
+    var proxy = new proxyFactory.ProxyFactory();
+    proxy.generateProxy(descriptor);
 
-    //log.info(JSON.stringify(params));
-    document.update(params);
+    if (this.config.role == MASTER) {
+
+        this.broadcastDescriptor(descriptor);
+    }else{
+
+        this.updateMaster(descriptor);
+    }
 };
+
+Directory.prototype.updateMaster = function(descriptor) {
+
+    if (!descriptor) {
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory.updateMaster: descriptor " + constants.MISSING_PARAMETER_MSG
+        };
+
+        throw error;
+    }
+
+    try{
+
+        var masterDescriptor = this.config.masterNodeDescriptor;
+        var initParams = {
+            token: this.config.masterAgent.token,
+            username: this.config.masterAgent.username,
+            password: this.config.masterAgent.password
+        };
+        var proxy = new proxyFactory.ProxyFactory();
+        var masterProxy = proxy.getProxy(masterDescriptor, initParams);
+
+        masterProxy.setUpdateService({"descriptor": descriptor});
+    }catch(exception){
+
+        return exception;
+    }
+};
+
+Directory.prototype.removeService = function(key) {
+	log.info("Removing service..");
+    if (!key) {
+
+        var msg = "Directory.removeService: key cannot be null or empty";
+        log.error(msg);
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: msg
+        };
+
+        throw error;
+    }
+
+    if(!document.get(key).result){
+        var msg = "No descriptor with " + key + " key";
+        log.error(msg);
+        return;
+    }
+
+    document.delete(key);
+    this.removeProxyFile(key);
+
+    if (this.config.role == MASTER) {
+
+        // broadcast deletion of descriptor
+    }else{
+
+        this.removeDescriptorFromMaster(key);
+    }
+};
+
+Directory.prototype.removeProxyFile = function(key) {
+
+    try{
+        var proxy = new proxyFactory.ProxyFactory();
+        var descriptor = this.getService(key);
+        var className = proxy.getClassNameFromDescriptor(descriptor);
+        var data = {
+            "apsdb.name": PROXY_FOLDER + className + "_module"
+        };
+        var resp = apsdb.callApi("DeleteFile", data, null);
+
+        if (resp.metadata.status == "failure") {
+            throw resp;
+        }
+    }catch(exception){
+        return exception;
+    }
+};
+
+Directory.prototype.removeDescriptorFromMaster = function(key) {
+
+    if (!key) {
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory.removeDescriptorFromMaster: descriptor key " + constants.MISSING_PARAMETER_MSG
+        };
+
+        throw error;
+    }
+    try{
+
+        var masterDescriptor = this.config.masterNodeDescriptor;
+        var initParams = {
+            token: this.config.masterAgent.token,
+            username: this.config.masterAgent.username,
+            password: this.config.masterAgent.password
+        };
+        var proxy = new proxyFactory.ProxyFactory();
+        var masterProxy = proxy.getProxy(masterDescriptor, initParams);
+
+        masterProxy.getRemoveService({"id": key});
+    }catch(exception){
+
+        return exception;
+    }
+}
 
 /** 
  * Turn a descriptor document into a JSON descriptor (OpenAPI)
