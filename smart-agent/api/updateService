@@ -1,8 +1,11 @@
 var directory = require("smart-agent/services/directory");
+var log = require("log");
+log.setLevel("info");
 
 try{
     
     var descriptor = request.body.descriptor;
+    log.info("api/updateService descriptor: \n" + JSON.stringify(descriptor));
     var dir = new directory.Directory();
     dir.updateService(descriptor);
 }catch(exception) {
