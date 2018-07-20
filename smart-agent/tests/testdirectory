@@ -1,39 +1,54 @@
 var jasmine = require("/modules/jasmine/boot");
 var directoryModule = require("/smart-agent/services/directory");
 var util = require("./util");
+var masterDescriptorPath = "/smart-agent/tests/swagger2/master-descriptor";
 
 jasmine.describe("TestDirectory", function() {
 
     var config = {
-        isMaster: false
+        isMaster: false,
+        masterNodeDescriptor : require(masterDescriptorPath).desc,
+        masterAgent:{
+            http: "https://iotfun.scriptrapps.io", 
+            mqtt: "mqtt://mqtt.scriptr.io",
+            authenticate: "smart-agent/api/authenticate",
+            token: "QTA0ODE1RTZENDpzY3JpcHRyOjhFQzhBQzU3NzREQzM4QjhFNEE0MEQxQkQ1MEFEOTg0",
+            username: "QTA0ODE1RTZENEBzY3JpcHRy:QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxQHNjcmlwdHI=",
+            password: "QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxOkZBODczODEwQ0IxMDVFQjA5MkRENDE4QUMwRUE2NzFB",
+            collaborationTopic: "collaboration_topic",
+            pubsubTopic: "QTA0ODE1RTZENA==/channel_descriptor/message",
+            invokeTopic: "QTA0ODE1RTZENA==/channel_descriptor/invoke"
+        }
     };
-    
+
     var descriptorPath = "./swagger2/valid-descriptor.json";
+    var testDescriptorPath = "./swagger2/test-descriptor";
     var directory = new directoryModule.Directory(config);
-	var descriptor = require(descriptorPath).desc;
-    
+    var descriptor = require(descriptorPath).desc;
+    var desc = require(testDescriptorPath).desc;
+
     jasmine.beforeAll(function(){
 
-    }); 
+    });
 
     jasmine.beforeEach(function() {
 
     });
-    
+
     jasmine.afterAll(function() {
-       util.deleteDocument(descriptor["x-node-id"]);           
+        util.deleteDocument(descriptor["x-node-id"]);           
     });
 
-    jasmine.it("test register service", function() {
+    /*jasmine.it("test register service", function() {
 
         try {
-            
+            //log.info("descriptor:" + JSON.stringify(descriptor));
             var listBeforeAdd = util.listDocumentsOfType("service_descriptor", true);           
             directory.register(descriptor);
-            
+
             // check if descriptor document with expected key was created
             util.getDocument(descriptor["x-node-id"]);
-            
+
             // check that we have n + 1 service descriptor
             var listAfterAdd = util.listDocumentsOfType("service_descriptor", true);
             jasmine.expect(listAfterAdd.length).toBe(listBeforeAdd.length + 1);
@@ -45,23 +60,45 @@ jasmine.describe("TestDirectory", function() {
     jasmine.it("test register service", function() {
 
         try {
-            
+
             directory.register(descriptor);
             // check if descriptor document with expected key was created
             util.getDocument(descriptor["x-node-id"]);
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
-    });
+    });*/
 
-	jasmine.it("test list services by category", function() {
+    jasmine.it("test update service", function() {
 
         try {
-            
+            log.info("from testdirectory: " + JSON.stringify(desc));
+            directory.updateService(desc);
+            // check if descriptor document with expected key was created
+            util.getDocument(desc["x-node-id"]);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });
+
+    /*jasmine.it("test remove service", function() {
+
+        try {
+            log.info("from testdirectory descriptor id: " + desc["x-node-id"]);
+            directory.removeService(desc["x-node-id"]);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
+    /*    jasmine.it("test list services by category", function() {
+
+        try {
+
             var filter = {
                 category: "temperature"
             };            
-            
+
             var list = directory.listServices(filter);
             jasmine.expect(list).not.toBeNull(null);
             jasmine.expect(list.length).toBe(1);
@@ -70,15 +107,15 @@ jasmine.describe("TestDirectory", function() {
             jasmine.fail(JSON.stringify(exception));
         }
     });    
-    
+
     jasmine.it("test list services by protocol", function() {
 
         try {
-            
+
             var filter = {
                 protocol: "mqtt"
             };
-            
+
             var list = directory.listServices(filter);
             jasmine.expect(list).not.toBeNull(null);
             jasmine.expect(list.length).toBe(1);
@@ -87,15 +124,15 @@ jasmine.describe("TestDirectory", function() {
             jasmine.fail(JSON.stringify(exception));
         }
     });    
-    
+
     jasmine.it("test list services by node id", function() {
 
         try {
-            
+
             var filter = {
                 nodeId: descriptor["x-node-id"]
             };
-            
+
             var list = directory.listServices(filter);
             jasmine.expect(list).not.toBeNull(null);
             jasmine.expect(list.length).toBe(1);
@@ -104,18 +141,18 @@ jasmine.describe("TestDirectory", function() {
             jasmine.fail(JSON.stringify(exception));
         }
     });
-    
+
     jasmine.it("test get service by key", function() {
 
         try {
-            
+
             var serviceDesc = directory.getService(descriptor["x-node-id"]);
             jasmine.expect(descriptor).not.toBeNull();          
             jasmine.expect(serviceDesc["x-node-id"]).toBe(descriptor["x-node-id"]);            
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
-    });
+    });*/
 });
 
 jasmine.execute();
