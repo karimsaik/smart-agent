@@ -1,0 +1,181 @@
+var desc = {
+    "info": {
+        "title": "",
+        "version": "1.0"
+    },
+    "x-node-id": "test-node-003",
+    "x-servers" : [
+        {
+            "url": "mqtt.scriptr.io",
+            "description": "testnode003"
+        },
+        {
+            "url": "api.scriptrapps.io", 
+            "description": "testnode003"
+        }
+    ],
+    "x-protocols": [
+        "mqtt",
+        "http"
+    ],
+    "x-category": "administrator",
+    "paths": {
+        "/smart-agent/api/getService": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "descriptor of the mentioned key",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/listServices": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "nodeId",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    },
+                    {
+                        "name": "category",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    },
+                    {
+                        "name": "protocol",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    },
+                    {
+                        "name": "pageNumber",
+                        "type": "integer",
+                        "required": true,
+                        "in": "query"
+                    },
+                    {
+                        "name": "resultsPerPage",
+                        "type": "integer",
+                        "required": true,
+                        "in": "query"
+                    },
+                    {
+                        "name": "sortOrder",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    }
+
+                ],
+                "responses": {
+                    "200": {
+                        "description": "filtered list of service descriptors",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/register": {
+            "post":{
+                "consumes": [
+                    "application/json"
+                ],
+                "parameters":[
+                    {
+                        "in": "body",
+                        "name": "descriptor",
+                        "required": true,
+                        "schema":{
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "register a service descriptor",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/updateService": {
+            "post":{
+                "consumes": [
+                    "application/json"
+                ],
+                "parameters":[
+                    {
+                        "in": "body",
+                        "name": "descriptor",
+                        "required": true,
+                        "schema":{
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "update a service descriptor",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/removeService": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "service with this key removed",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        }
+    },
+    "securityDefinitions": {
+        "authToken": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "x-mqtt": {
+            "type": "basic"
+        }
+    },
+    "swagger": "2.0"
+}
