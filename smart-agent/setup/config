@@ -7,11 +7,12 @@ var role = "collaborator"; // one of master or collaborator
 
 var masterNode = require("/smart-agent/tests/swagger2/master-descriptor");
 var masterNodeDescriptor = masterNode.desc;
+
 //log.info(JSON.stringify(masterNodeDescriptor));
 /*
  * Required data about the corresponding master node
  */
-var masterAgent = {
+/*var masterAgent = {
     http: "https://iotfun.scriptrapps.io", 
     mqtt: "mqtt://mqtt.scriptr.io",
     authenticate: "smart-agent/api/authenticate",
@@ -19,6 +20,18 @@ var masterAgent = {
     username: "WEY5MkMxNDdDNkBzY3JpcHRy:WEY5MkMxNDdDNjpNYXN0ZXJOb2RlQHNjcmlwdHI=",
     password: "WEY5MkMxNDdDNjpNYXN0ZXJOb2RlOkZDODk1MzgxRURERDQ5REI1NEEwRTg4NkU3RkFGMkQy",
     collaborationTopic: "collaboration_topic",
-    pubsubTopic: "WEY5MkMxNDdDNg==/channel_descriptor/message",
-    invokeTopic: "WEY5MkMxNDdDNg==/channel_descriptor/invoke"
+    pubsubTopic: "WEY5MkMxNDdDNg==/collaborationTopic/message",
+    invokeTopic: "WEY5MkMxNDdDNg==/collaborationTopic/invoke"
+};*/
+
+var masterAgent = {
+    http: "https://iotfun.scriptrapps.io", 
+    mqtt: "mqtt://mqtt.scriptr.io",
+    authenticate: "smart-agent/api/authenticate",
+    token: "QTA0ODE1RTZENDpzY3JpcHRyOjhFQzhBQzU3NzREQzM4QjhFNEE0MEQxQkQ1MEFEOTg0",
+    username: "QTA0ODE1RTZENEBzY3JpcHRy:QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxQHNjcmlwdHI=",
+    password: "QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxOkZBODczODEwQ0IxMDVFQjA5MkRENDE4QUMwRUE2NzFB",
+    collaborationTopic: "collaboration_topic",
+    pubsubTopic: "QTA0ODE1RTZENA==/collaborationTopic/message",
+    invokeTopic: "QTA0ODE1RTZENA==/collaborationTopic/invoke"
 };
