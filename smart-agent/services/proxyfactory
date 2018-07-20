@@ -7,7 +7,6 @@ const HTTP_BASED = "scriptrapps.io";
 const MQTT_BASED = "scriptr.io";
 var constants = require("/smart-agent/common/constants");
 var config = require("smart-agent/setup/config");
-
 /**
  * This class is used to obtain instances of proxies to remote services
  * @class ProxyFactory
@@ -23,24 +22,30 @@ function ProxyFactory() {
  * @return {Object} master agent proxy
  * @throw {Error} : if the current agent is the master agent
  */
-ProxyFactory.prototype.getMasterAgentProxy = function() {
-
+ProxyFactory.prototype.getMasterAgentProxy = function(config) {
+	
+    log.info("getMasterAgentProxy role: " + config.role);
     if(config.role == "master"){
         throw{
             errorCode: "Role not allowed",
             errorDetail: "Node cannot be master"
         }
     }
-    var masterDescriptor = require(config.masterNodeDescriptor);
-
-    var initParams = {
-        token: config.masterAgent.token,
-        username: config.masterAgent.username,
-        password: config.masterAgent.password
-    };
-
-    this.getProxy(masterDescriptor, initParams);
-}
+    try{
+        var masterDescriptor = config.masterNodeDescriptor;
+		log.info("masterDescriptor: \n" + JSON.stringify(masterDescriptor));
+        var initParams = {
+            token: config.masterAgent.token,
+            username: config.masterAgent.username,
+            password: config.masterAgent.password
+        };
+        log.info("initParams: \n" + JSON.stringify(initParams));
+        log.info("Now excecuting getProxy");
+        return this.getProxy(masterDescriptor, initParams);
+    }catch(exception){
+        return exception;
+    }
+};
 
 /**
  * @method getProxy
@@ -50,6 +55,7 @@ ProxyFactory.prototype.getMasterAgentProxy = function() {
  */
 ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
 
+    log.info("ProxyFactory.getProxy");
     if (!descriptor) {
 
         throw {
@@ -67,10 +73,12 @@ ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
     }
 
     var className = this.getClassNameFromDescriptor(descriptor);
+    log.info("Class name: " + className);
     if (!this.proxyExists(className)) {
+        log.info("In ProxyFactory.getProxy proxy does no exist");
         this.generateProxy(descriptor);
     }
-
+	log.info("In ProxyFactory.getProxy proxy exists");
     var proxyModule = require(PROXY_FOLDER + className + MODULE);
     return new proxyModule[className](initParams);
 };
