@@ -31,7 +31,7 @@ var desc = {
                 ],
                 "responses": {
                     "200": {
-                        "description": "temperature as measured by device",
+                        "description": "descriptor of the mentioned key",
                         "schema": {
                             "type": "object"
                         }
@@ -110,6 +110,53 @@ var desc = {
                 "responses": {
                     "200": {
                         "description": "register a service descriptor",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/updateService": {
+            "post":{
+                "consumes": [
+                    "application/json"
+                ],
+                "parameters":[
+                    {
+                        "in": "body",
+                        "name": "descriptor",
+                        "required": true,
+                        "schema":{
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "update a service descriptor",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/removeService": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "service with this key removed",
                         "schema": {
                             "type": "object"
                         }
