@@ -67,7 +67,7 @@ Directory.prototype.register = function(descriptor, callback) {
 
         this.broadcastDescriptor(descriptor);
     }else{
-
+		log.info("Directory.register sending descriptor to master");
         this.sendDescriptorToMaster(descriptor);
     }
 };
@@ -84,15 +84,10 @@ Directory.prototype.sendDescriptorToMaster = function(descriptor) {
         throw error;
     }
     try{
-
-        var masterDescriptor = this.config.masterNodeDescriptor;
-        var initParams = {
-            token: this.config.masterAgent.token,
-            username: this.config.masterAgent.username,
-            password: this.config.masterAgent.password
-        };
+        
         var proxy = new proxyFactory.ProxyFactory();
-        var masterProxy = proxy.getProxy(masterDescriptor, initParams);
+        var masterProxy = proxy.getMasterAgentProxy(this.config);
+        log.info("masterProxy: " + JSON.stringify(masterProxy));
 
         masterProxy.setRegister({"descriptor": descriptor});
     }catch(exception){
@@ -353,19 +348,11 @@ Directory.prototype.updateMaster = function(descriptor) {
 
     try{
 
-        var masterDescriptor = this.config.masterNodeDescriptor;
-        log.info("sentToMaster masterDescriptor: " + JSON.stringify(masterDescriptor));
-        var initParams = {
-            token: this.config.masterAgent.token,
-            username: this.config.masterAgent.username,
-            password: this.config.masterAgent.password
-        };
-
-        log.info("initParams: " + JSON.stringify(initParams));
-        var proxy = new proxyFactory.ProxyFactory();
-        var masterProxy = proxy.getProxy(masterDescriptor, initParams);
-
-        log.info("masterProxy: " + JSON.stringify(masterProxy));
+		var proxy = new proxyFactory.ProxyFactory();
+        var masterProxy = proxy.getMasterAgentProxy(this.config);
+        log.info("masterProxy" + JSON.stringify(masterProxy));
+        
+        log.info("updateMaster masterProxy: " + JSON.stringify(masterProxy));
         masterProxy.setUpdateService({"descriptor": descriptor});
     }catch(exception){
 
@@ -402,11 +389,12 @@ Directory.prototype.removeService = function(key) {
     document.delete(key);
     
     if (this.config.role == MASTER) {
-        log.info("role: " + this.config.role);
+        log.info("removeService role: " + this.config.role);
 
         // broadcast deletion of descriptor
     }else{
-        log.info("role: " + this.config.role);
+        log.info("removeService role: " + this.config.role);
+        log.info("removing service from master");
         this.removeServiceFromMaster(key);
     }
 };
@@ -423,15 +411,10 @@ Directory.prototype.removeServiceFromMaster = function(key) {
         throw error;
     }
     try{
-
-        var masterDescriptor = this.config.masterNodeDescriptor;
-        var initParams = {
-            token: this.config.masterAgent.token,
-            username: this.config.masterAgent.username,
-            password: this.config.masterAgent.password
-        };
+  
         var proxy = new proxyFactory.ProxyFactory();
-        var masterProxy = proxy.getProxy(masterDescriptor, initParams);
+        var masterProxy = proxy.getMasterAgentProxy(this.config);
+        log.info("masterProxy: " + JSON.stringify(masterProxy));
 
         masterProxy.getRemoveService({"id": key});
     }catch(exception){
