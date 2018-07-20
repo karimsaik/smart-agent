@@ -51,9 +51,9 @@ Directory.prototype.register = function(descriptor, callback) {
         throw error;
     }
 
-    var resp = document.get(descriptor[NODE_ID]);
+    //var resp = document.get(descriptor[NODE_ID]);
     //log.info(resp);
-    if (resp.result){
+    if (this.descriptorExists(descriptor[NODE_ID])){
 
         throw{
 
@@ -161,6 +161,11 @@ Directory.prototype.addToLocalStorage = function(descriptor, callback) {
             errorDetail: msg
         };
     }
+};
+
+Directory.prototype.descriptorExists = function(key) {
+    var resp = document.get(key);
+    return resp.result;
 };
 
 /**
@@ -296,7 +301,7 @@ Directory.prototype.updateService = function(descriptor) {
 
     log.info("starting Directory.updateService..");
     log.info("from Directory.updateService: " + JSON.stringify(descriptor));
-    
+
     if (!descriptor) {
         var msg = "Directory.updateService: descriptor " + constants.MISSING_PARAMETER_MSG;
         log.error(msg);
@@ -308,32 +313,34 @@ Directory.prototype.updateService = function(descriptor) {
 
         throw error;
     }
-	log.info("node id: " + descriptor[NODE_ID]);
+    log.info("node id: " + descriptor[NODE_ID]);
     //log.info("Directory.updateService document.get.result: " + JSON.stringify(document.get(descriptor[NODE_ID]))); //to check
-    if (!document.get(descriptor[NODE_ID]).result) {
-		log.info("Directory.updatService descriptor id: " + descriptor[NODE_ID]);
+ //   if (!document.get(descriptor[NODE_ID]).result) {
+	if(!this.descriptorExists(descriptor[NODE_ID])) {
+        log.info("Directory.updatService descriptor id: " + descriptor[NODE_ID]);
         log.info("No descriptor found to update, registering a new one..");
-        this.register(descriptor);
-        return;
+        return this.register(descriptor);
     }
-	
+
     log.info("Descriptor found, updating..");
     this.addToLocalStorage(descriptor);
+
+    log.info("Directory.updateService descriptor id: " + descriptor[NODE_ID]);
     this.removeProxyFile(descriptor[NODE_ID]);
-    var proxy = new proxyFactory.ProxyFactory();
-    proxy.generateProxy(descriptor);
 
     if (this.config.role == MASTER) {
-
+        log.info("Role master, broadcasting descriptor: " + JSON.stringify(descriptor));
         this.broadcastDescriptor(descriptor);
     }else{
-
+        log.info("Role not master, updating to master descriptor: " + JSON.stringify(descriptor));
         this.updateMaster(descriptor);
     }
 };
 
 Directory.prototype.updateMaster = function(descriptor) {
 
+    log.info("Updating master..");
+    log.info("Directory.updateMaster descriptor: " + JSON.stringify(descriptor));
     if (!descriptor) {
         var error = {
 
@@ -347,14 +354,18 @@ Directory.prototype.updateMaster = function(descriptor) {
     try{
 
         var masterDescriptor = this.config.masterNodeDescriptor;
+        log.info("sentToMaster masterDescriptor: " + JSON.stringify(masterDescriptor));
         var initParams = {
             token: this.config.masterAgent.token,
             username: this.config.masterAgent.username,
             password: this.config.masterAgent.password
         };
+
+        log.info("initParams: " + JSON.stringify(initParams));
         var proxy = new proxyFactory.ProxyFactory();
         var masterProxy = proxy.getProxy(masterDescriptor, initParams);
 
+        log.info("masterProxy: " + JSON.stringify(masterProxy));
         masterProxy.setUpdateService({"descriptor": descriptor});
     }catch(exception){
 
@@ -363,7 +374,9 @@ Directory.prototype.updateMaster = function(descriptor) {
 };
 
 Directory.prototype.removeService = function(key) {
-	log.info("Removing service..");
+
+    log.info("Removing service..");
+    log.info("Directory.removeService key: " + key);
     if (!key) {
 
         var msg = "Directory.removeService: key cannot be null or empty";
@@ -377,50 +390,34 @@ Directory.prototype.removeService = function(key) {
         throw error;
     }
 
-    if(!document.get(key).result){
+    //if(!document.get(key).result){
+    if(!this.descriptorExists(key)){
         var msg = "No descriptor with " + key + " key";
         log.error(msg);
         return;
     }
 
-    document.delete(key);
+    log.info("directory.removeService removing proxy file of key: " + key);
     this.removeProxyFile(key);
-
+    document.delete(key);
+    
     if (this.config.role == MASTER) {
+        log.info("role: " + this.config.role);
 
         // broadcast deletion of descriptor
     }else{
-
-        this.removeDescriptorFromMaster(key);
+        log.info("role: " + this.config.role);
+        this.removeServiceFromMaster(key);
     }
 };
 
-Directory.prototype.removeProxyFile = function(key) {
-
-    try{
-        var proxy = new proxyFactory.ProxyFactory();
-        var descriptor = this.getService(key);
-        var className = proxy.getClassNameFromDescriptor(descriptor);
-        var data = {
-            "apsdb.name": PROXY_FOLDER + className + "_module"
-        };
-        var resp = apsdb.callApi("DeleteFile", data, null);
-
-        if (resp.metadata.status == "failure") {
-            throw resp;
-        }
-    }catch(exception){
-        return exception;
-    }
-};
-
-Directory.prototype.removeDescriptorFromMaster = function(key) {
+Directory.prototype.removeServiceFromMaster = function(key) {
 
     if (!key) {
         var error = {
 
             errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.removeDescriptorFromMaster: descriptor key " + constants.MISSING_PARAMETER_MSG
+            errorDetail: "Directory.removeServiceFromMaster: descriptor key " + constants.MISSING_PARAMETER_MSG
         };
 
         throw error;
@@ -441,7 +438,33 @@ Directory.prototype.removeDescriptorFromMaster = function(key) {
 
         return exception;
     }
-}
+};
+
+Directory.prototype.removeProxyFile = function(key) {
+
+    try{
+
+        log.info("in removeProxyFile Removing proxy file for key: " + key);
+        var proxy = new proxyFactory.ProxyFactory();
+        var descriptor = this.getService(key);
+        log.info("in removeProxyFile descriptor: " + JSON.stringify(descriptor));
+        var className = proxy.getClassNameFromDescriptor(descriptor);
+        log.info("Class name: " + className);
+        var data = {
+            "apsdb.name": PROXY_FOLDER + className + "_module"
+        };
+        log.info("data: " + JSON.stringify(data));
+        var resp = apsdb.callApi("DeleteFile", data, null);
+
+        log.info("removeProxyFile resp.metadata.status: " + resp.metadata.status);
+        if (resp.metadata.status == "failure") {
+            throw resp;
+        }
+    }catch(exception){
+        log.error(JSON.stringify(exception));
+        return exception;
+    }
+};
 
 /** 
  * Turn a descriptor document into a JSON descriptor (OpenAPI)
