@@ -68,17 +68,17 @@ Directory.prototype.register = function(descriptor, callback) {
         this.broadcastDescriptor(descriptor);
     }else{
 		log.info("Directory.register sending descriptor to master");
-        this.sendDescriptorToMaster(descriptor);
+        this.sendServiceToMaster(descriptor);
     }
 };
 
-Directory.prototype.sendDescriptorToMaster = function(descriptor) {
+Directory.prototype.sendServiceToMaster = function(descriptor) {
 
     if (!descriptor) {
         var error = {
 
             errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.sendDescriptorToMaster: descriptor " + constants.MISSING_PARAMETER_MSG
+            errorDetail: "Directory.sendServiceToMaster: descriptor " + constants.MISSING_PARAMETER_MSG
         };
 
         throw error;
