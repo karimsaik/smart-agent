@@ -1,13 +1,21 @@
 var directory = require("smart-agent/services/directory");
 var log = require("log");
 log.setLevel("info");
+
 try{
+	var dir = new directory.Directory();
+    var body = request.body;
     
-    //log.info(JSON.stringify(request.body.descriptor));
-    var descriptor = request.body.descriptor;
-    var dir = new directory.Directory();
-    dir.register(descriptor);
+    if(!body.descriptor){
+        if(body.msgType == "new"){
+            dir.register(body.payLoad);
+            return;
+        }
+        return;
+    }
+    
+    dir.register(body.descriptor);
 }catch(exception) {
-    
+
     return exception;
 }

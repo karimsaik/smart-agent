@@ -3,11 +3,18 @@ var log = require("log");
 log.setLevel("info");
 
 try{
-    
-    var descriptor = request.body.descriptor;
-    log.info("api/updateService descriptor: \n" + JSON.stringify(descriptor));
     var dir = new directory.Directory();
-    dir.updateService(descriptor);
+    var body = request.body;
+    
+    if(!body.descriptor){
+        if(body.msgType == "update"){
+            dir.updateService(body.payLoad);
+            return;
+        }
+        return;
+    }
+    
+    dir.updateService(body.descriptor);
 }catch(exception) {
     
     return exception;

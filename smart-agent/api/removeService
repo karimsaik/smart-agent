@@ -1,11 +1,23 @@
 var directory = require("smart-agent/services/directory");
+const NODE_ID = "x-node-id";
+
 var log = require("log");
 log.setLevel("info");
 try{
-
-    var descriptor = request.parameters.id;
     var dir = new directory.Directory();
-    dir.removeService(id);
+    if(request.parameters){
+        log.info("api/removeService id: " + id);
+        var id = request.parameters.id;
+        dir.removeService(id);
+    }
+    
+    if(request.body){
+        if(body.msgType == "delete"){
+            dir.removeService(body.payLoad[NODE_ID]);
+            return;
+        }
+        return;
+    }
 }catch(exception) {
     
     return exception;
