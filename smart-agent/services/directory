@@ -65,9 +65,13 @@ Directory.prototype.register = function(descriptor, callback) {
     this.addToLocalStorage(descriptor);
     if (this.config.role == MASTER) {
 
-        this.broadcastDescriptor(descriptor);
+        log.info("register role: " + this.config.role);
+        this.broadcastDescriptor(
+            {"msgType": "new",
+             "payLoad": descriptor
+            });
     }else{
-		log.info("Directory.register sending descriptor to master");
+        log.info("Directory.register sending descriptor to master");
         this.sendServiceToMaster(descriptor);
     }
 };
@@ -84,7 +88,7 @@ Directory.prototype.sendServiceToMaster = function(descriptor) {
         throw error;
     }
     try{
-        
+
         var proxy = new proxyFactory.ProxyFactory();
         var masterProxy = proxy.getMasterAgentProxy(this.config);
         log.info("masterProxy: " + JSON.stringify(masterProxy));
@@ -143,7 +147,7 @@ Directory.prototype.addToLocalStorage = function(descriptor, callback) {
 
         if (!descriptorObj[key]) {
             descriptorObj[key] = descriptor[key];
-        }         
+        }
     }
 
     var resp = document.save(descriptorObj);
@@ -159,6 +163,7 @@ Directory.prototype.addToLocalStorage = function(descriptor, callback) {
 };
 
 Directory.prototype.descriptorExists = function(key) {
+
     var resp = document.get(key);
     return resp.result;
 };
@@ -168,21 +173,23 @@ Directory.prototype.descriptorExists = function(key) {
  * @method broadcastDescriptor
  * @param {Object} [descriptor] extended OpenAPI descriptor of the service
  */
-Directory.prototype.broadcastDescriptor = function(descriptor) {
+Directory.prototype.broadcastDescriptor = function(message) {
 
-    if (!descriptor) {
+    log.info("Directory.broadcastDescriptor message: " + JSON.stringify(message));
+    if (!message || !message.msgType || !message.payLoad) {
 
-        log.error("Directory.broadcastDescriptor: " + constants.MISSING_PARAMETER_MSG);
+        log.error("Directory.broadcastDescriptor message: " + constants.MISSING_PARAMETER_MSG);
         var error = {
 
             errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.broadcastDescriptor: " + constants.MISSING_PARAMETER_MSG
+            errorDetail: "Directory.broadcastDescriptor message: " + constants.MISSING_PARAMETER_MSG
         };
 
         throw error;
     }
 
-    log.info("Broadcasting..");
+    log.info("publishing message");
+    publish(DESC_CHANNEL, message);
 };
 
 /**
@@ -310,8 +317,8 @@ Directory.prototype.updateService = function(descriptor) {
     }
     log.info("node id: " + descriptor[NODE_ID]);
     //log.info("Directory.updateService document.get.result: " + JSON.stringify(document.get(descriptor[NODE_ID]))); //to check
- //   if (!document.get(descriptor[NODE_ID]).result) {
-	if(!this.descriptorExists(descriptor[NODE_ID])) {
+    //   if (!document.get(descriptor[NODE_ID]).result) {
+    if(!this.descriptorExists(descriptor[NODE_ID])) {
         log.info("Directory.updatService descriptor id: " + descriptor[NODE_ID]);
         log.info("No descriptor found to update, registering a new one..");
         return this.register(descriptor);
@@ -324,8 +331,11 @@ Directory.prototype.updateService = function(descriptor) {
     this.removeProxyFile(descriptor[NODE_ID]);
 
     if (this.config.role == MASTER) {
-        log.info("Role master, broadcasting descriptor: " + JSON.stringify(descriptor));
-        this.broadcastDescriptor(descriptor);
+        log.info("updateService role: " + this.config.role);
+        this.broadcastDescriptor(
+            {"msgType": "update",
+             "payLoad": descriptor
+            });
     }else{
         log.info("Role not master, updating to master descriptor: " + JSON.stringify(descriptor));
         this.updateMaster(descriptor);
@@ -348,10 +358,10 @@ Directory.prototype.updateMaster = function(descriptor) {
 
     try{
 
-		var proxy = new proxyFactory.ProxyFactory();
+        var proxy = new proxyFactory.ProxyFactory();
         var masterProxy = proxy.getMasterAgentProxy(this.config);
         log.info("masterProxy" + JSON.stringify(masterProxy));
-        
+
         log.info("updateMaster masterProxy: " + JSON.stringify(masterProxy));
         masterProxy.setUpdateService({"descriptor": descriptor});
     }catch(exception){
@@ -387,11 +397,16 @@ Directory.prototype.removeService = function(key) {
     log.info("directory.removeService removing proxy file of key: " + key);
     this.removeProxyFile(key);
     document.delete(key);
-    
+
     if (this.config.role == MASTER) {
         log.info("removeService role: " + this.config.role);
+        this.broadcastDescriptor(
+            {"msgType": "delete",
+             "payLoad": {
+                 NODE_ID: key
+             }
+            });
 
-        // broadcast deletion of descriptor
     }else{
         log.info("removeService role: " + this.config.role);
         log.info("removing service from master");
@@ -411,7 +426,7 @@ Directory.prototype.removeServiceFromMaster = function(key) {
         throw error;
     }
     try{
-  
+
         var proxy = new proxyFactory.ProxyFactory();
         var masterProxy = proxy.getMasterAgentProxy(this.config);
         log.info("masterProxy: " + JSON.stringify(masterProxy));
