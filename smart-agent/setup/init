@@ -1,3 +1,5 @@
+const DESC_CHANNEL = "collaboration_topic";
+const API_FOLDER = "smart-agent/api/";
 var group = require("group");
 
 createGroups();
@@ -10,5 +12,7 @@ function createGroups() {
 }
 
 function subscribeToMasterAgentTopics() {
-    
+    subscribe(DESC_CHANNEL, API_FOLDER + "register");
+    subscribe(DESC_CHANNEL, API_FOLDER + "updateService");
+    subscribe(DESC_CHANNEL, API_FOLDER + "removeService");
 }
