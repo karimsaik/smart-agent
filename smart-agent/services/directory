@@ -45,7 +45,7 @@ Directory.prototype.register = function(descriptor, callback) {
         };
 
         if (callback) {
-            callback.invoke(error)    
+            callback.invoke(error)
         }
 
         throw error;
@@ -68,7 +68,7 @@ Directory.prototype.register = function(descriptor, callback) {
         log.info("register role: " + this.config.role);
         this.broadcastDescriptor(
             {"msgType": "new",
-             "payLoad": descriptor
+             "payLoad": JSON.stringify(descriptor)
             });
     }else{
         log.info("Directory.register sending descriptor to master");
@@ -188,8 +188,8 @@ Directory.prototype.broadcastDescriptor = function(message) {
         throw error;
     }
 
-    log.info("publishing message");
-    publish(DESC_CHANNEL, message);
+    log.info("Publishing message");
+    return publish(DESC_CHANNEL, message);
 };
 
 /**
@@ -315,12 +315,11 @@ Directory.prototype.updateService = function(descriptor) {
 
         throw error;
     }
-    log.info("node id: " + descriptor[NODE_ID]);
+    log.info("Directory.updateService node id: " + descriptor[NODE_ID]);
     //log.info("Directory.updateService document.get.result: " + JSON.stringify(document.get(descriptor[NODE_ID]))); //to check
     //   if (!document.get(descriptor[NODE_ID]).result) {
     if(!this.descriptorExists(descriptor[NODE_ID])) {
-        log.info("Directory.updatService descriptor id: " + descriptor[NODE_ID]);
-        log.info("No descriptor found to update, registering a new one..");
+        log.info("No descriptor with id" + descriptor[NODE_ID] + "found to update, registering a new one..");
         return this.register(descriptor);
     }
 
@@ -332,12 +331,12 @@ Directory.prototype.updateService = function(descriptor) {
 
     if (this.config.role == MASTER) {
         log.info("updateService role: " + this.config.role);
-        this.broadcastDescriptor(
+        /*this.broadcastDescriptor(
             {"msgType": "update",
-             "payLoad": descriptor
-            });
+             "payLoad": JSON.stringify(descriptor)
+            });*/
     }else{
-        log.info("Role not master, updating to master descriptor: " + JSON.stringify(descriptor));
+        log.info("Role not master, updating descriptor to master: " + JSON.stringify(descriptor));
         this.updateMaster(descriptor);
     }
 };
@@ -360,8 +359,6 @@ Directory.prototype.updateMaster = function(descriptor) {
 
         var proxy = new proxyFactory.ProxyFactory();
         var masterProxy = proxy.getMasterAgentProxy(this.config);
-        log.info("masterProxy" + JSON.stringify(masterProxy));
-
         log.info("updateMaster masterProxy: " + JSON.stringify(masterProxy));
         masterProxy.setUpdateService({"descriptor": descriptor});
     }catch(exception){
@@ -372,7 +369,6 @@ Directory.prototype.updateMaster = function(descriptor) {
 
 Directory.prototype.removeService = function(key) {
 
-    log.info("Removing service..");
     log.info("Directory.removeService key: " + key);
     if (!key) {
 
@@ -387,7 +383,6 @@ Directory.prototype.removeService = function(key) {
         throw error;
     }
 
-    //if(!document.get(key).result){
     if(!this.descriptorExists(key)){
         var msg = "No descriptor with " + key + " key";
         log.error(msg);
@@ -402,14 +397,14 @@ Directory.prototype.removeService = function(key) {
         log.info("removeService role: " + this.config.role);
         this.broadcastDescriptor(
             {"msgType": "delete",
-             "payLoad": {
-                 NODE_ID: key
-             }
+             "payLoad": JSON.stringify({
+                 "x-node-id": key
+             })
             });
 
     }else{
-        log.info("removeService role: " + this.config.role);
-        log.info("removing service from master");
+        log.info("RemoveService role: " + this.config.role);
+        log.info("Removing service from master");
         this.removeServiceFromMaster(key);
     }
 };
