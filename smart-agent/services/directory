@@ -33,7 +33,7 @@ function Directory(config) {
  * @param {String} [callback][protocol]: one of "http" or "mqtt"
  * @throw {Error}
  */
-Directory.prototype.register = function(descriptor, callback) {
+Directory.prototype.register = function(descriptor, role, callback) {
 
     if (!descriptor) {
 
@@ -71,8 +71,10 @@ Directory.prototype.register = function(descriptor, callback) {
              "payLoad": JSON.stringify(descriptor)
             });
     }else{
-        log.info("Directory.register sending descriptor to master");
-        this.sendServiceToMaster(descriptor);
+        if(role != MASTER){
+            log.info("Directory.register sending descriptor to master");
+            this.sendServiceToMaster(descriptor);
+        }
     }
 };
 
@@ -188,8 +190,14 @@ Directory.prototype.broadcastDescriptor = function(message) {
         throw error;
     }
 
+    var msg = {
+        "msgType": message.msgType,
+        "payLoad": message.payLoad,
+        "role": MASTER
+    }
+
     log.info("Publishing message");
-    return publish(DESC_CHANNEL, message);
+    return publish(DESC_CHANNEL, msg);
 };
 
 /**
@@ -331,13 +339,15 @@ Directory.prototype.updateService = function(descriptor) {
 
     if (this.config.role == MASTER) {
         log.info("updateService role: " + this.config.role);
-        /*this.broadcastDescriptor(
+        this.broadcastDescriptor(
             {"msgType": "update",
              "payLoad": JSON.stringify(descriptor)
-            });*/
+            });
     }else{
-        log.info("Role not master, updating descriptor to master: " + JSON.stringify(descriptor));
-        this.updateMaster(descriptor);
+        if(role != MASTER){
+            log.info("Role not master, updating descriptor to master: " + JSON.stringify(descriptor));
+            this.updateMaster(descriptor);
+        }
     }
 };
 
@@ -367,7 +377,7 @@ Directory.prototype.updateMaster = function(descriptor) {
     }
 };
 
-Directory.prototype.removeService = function(key) {
+Directory.prototype.removeService = function(key, role) {
 
     log.info("Directory.removeService key: " + key);
     if (!key) {
@@ -403,9 +413,11 @@ Directory.prototype.removeService = function(key) {
             });
 
     }else{
-        log.info("RemoveService role: " + this.config.role);
-        log.info("Removing service from master");
-        this.removeServiceFromMaster(key);
+        if(role != MASTER){
+            log.info("RemoveService role: " + this.config.role);
+            log.info("Removing service from master");
+            this.removeServiceFromMaster(key);
+        }
     }
 };
 
