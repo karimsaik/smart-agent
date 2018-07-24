@@ -3,12 +3,16 @@ var log = require("log");
 log.setLevel("info");
 
 try{
-	var dir = new directory.Directory();
+    log.info("api/register");
+    var dir = new directory.Directory();
     var body = request.body;
+    log.info("body:" + JSON.stringify(body));
     
     if(!body.descriptor){
+        log.info("api/register no descriptor found");
+        log.info("msgType: " + body.msgType);
         if(body.msgType == "new"){
-            dir.register(body.payLoad);
+            dir.register(JSON.parse(body.payLoad));
             return;
         }
         return;

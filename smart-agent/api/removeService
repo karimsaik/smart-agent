@@ -3,22 +3,42 @@ const NODE_ID = "x-node-id";
 
 var log = require("log");
 log.setLevel("info");
+var dir = new directory.Directory();
+var body = request.body;
+var parameters = request.parameters;
+
 try{
-    var dir = new directory.Directory();
-    if(request.parameters){
+    log.info("api/removeService");
+    log.info("request: " + JSON.stringify(request));
+    log.info("request.body: " + JSON.stringify(body));
+    log.info("request.parameters: " + JSON.stringify(parameters));
+    if(parameters.id){
+        
+        log.info("Parameters exist");
+        var id = parameters.id;
         log.info("api/removeService id: " + id);
-        var id = request.parameters.id;
         dir.removeService(id);
+        return;
     }
-    
-    if(request.body){
+    /*if(body[NODE_ID]){
+        log.info("body[x-node-id] exists");
+        var id = body[NODE_ID];
+        dir.removeService(id);
+        return;
+    }*/
+        
+    if(body){        
+        log.info("api/removeService body exists");
+        log.info("msgType: " + body.msgType);
+        log.info("body: " + JSON.stringify(body));
         if(body.msgType == "delete"){
-            dir.removeService(body.payLoad[NODE_ID]);
+            log.info("Node ID: " + (JSON.parse(body.payLoad))[NODE_ID]);
+            dir.removeService((JSON.parse(body.payLoad))[NODE_ID]);
             return;
         }
         return;
     }
 }catch(exception) {
-    
+
     return exception;
 }

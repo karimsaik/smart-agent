@@ -3,17 +3,21 @@ var log = require("log");
 log.setLevel("info");
 
 try{
+    log.info("api/updateService");
     var dir = new directory.Directory();
     var body = request.body;
+    log.info("body:" + JSON.stringify(body));
     
     if(!body.descriptor){
+        log.info("api/updateService Condition was true");
+        log.info("msgType: " + body.msgType);
         if(body.msgType == "update"){
-            dir.updateService(body.payLoad);
-            return;
+            return dir.updateService(JSON.parse(body.payLoad));
         }
         return;
     }
     
+    log.info("api/updateService Condition was false");
     dir.updateService(body.descriptor);
 }catch(exception) {
     
