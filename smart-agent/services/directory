@@ -66,10 +66,7 @@ Directory.prototype.register = function(descriptor, role, callback) {
     if (this.config.role == MASTER) {
 
         log.info("register role: " + this.config.role);
-        this.broadcastDescriptor(
-            {"msgType": "new",
-             "payLoad": JSON.stringify(descriptor)
-            });
+        this.broadcastDescriptor(this.makeMessage("new", descriptor));
     }else{
         if(role != MASTER){
             log.info("Directory.register sending descriptor to master");
@@ -339,10 +336,7 @@ Directory.prototype.updateService = function(descriptor) {
 
     if (this.config.role == MASTER) {
         log.info("updateService role: " + this.config.role);
-        this.broadcastDescriptor(
-            {"msgType": "update",
-             "payLoad": JSON.stringify(descriptor)
-            });
+        this.broadcastDescriptor(this.makeMessage("update", descriptor));
     }else{
         if(role != MASTER){
             log.info("Role not master, updating descriptor to master: " + JSON.stringify(descriptor));
@@ -405,19 +399,16 @@ Directory.prototype.removeService = function(key, role) {
 
     if (this.config.role == MASTER) {
         log.info("removeService role: " + this.config.role);
-        this.broadcastDescriptor(
-            {"msgType": "delete",
-             "payLoad": JSON.stringify({
-                 "x-node-id": key
-             })
-            });
-
-    }else{
-        if(role != MASTER){
-            log.info("RemoveService role: " + this.config.role);
-            log.info("Removing service from master");
-            this.removeServiceFromMaster(key);
+        var nodeId = {
+            "x-node-id": key
         }
+        return this.broadcastDescriptor(this.makeMessage("delete", nodeId));
+    }
+    
+    if(role != MASTER){
+        log.info("RemoveService role: " + this.config.role);
+        log.info("Removing service from master");
+        this.removeServiceFromMaster(key);
     }
 };
 
@@ -477,6 +468,15 @@ Directory.prototype.removeProxyFile = function(key) {
  * @param {Object} descriptorDoc: a scriptr.io document that contains a dehydrated (serialized) descriptor 
  * @return {Object}
  */
+
+Directory.prototype.makeMessage = function(msgType, payLoad) {
+    var message = {
+        "msgType": msgType,
+        "payLoad": JSON.stringify(payLoad)
+    };
+    return message
+};
+
 Directory.prototype.hydrate = function(descriptorDoc) {
 
     var descriptor = {};
