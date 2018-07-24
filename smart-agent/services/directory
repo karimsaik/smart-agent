@@ -51,8 +51,6 @@ Directory.prototype.register = function(descriptor, role, callback) {
         throw error;
     }
 
-    //var resp = document.get(descriptor[NODE_ID]);
-    //log.info(resp);
     if (this.descriptorExists(descriptor[NODE_ID])){
 
         throw{
@@ -304,7 +302,7 @@ Directory.prototype.getService = function(key) {
  * @method updateService
  * @param {Object} [descriptor] extended OpenAPI descriptor of the service
  */
-Directory.prototype.updateService = function(descriptor) {
+Directory.prototype.updateService = function(descriptor, role) {
 
     log.info("starting Directory.updateService..");
     log.info("from Directory.updateService: " + JSON.stringify(descriptor));
@@ -320,12 +318,21 @@ Directory.prototype.updateService = function(descriptor) {
 
         throw error;
     }
+    
     log.info("Directory.updateService node id: " + descriptor[NODE_ID]);
     //log.info("Directory.updateService document.get.result: " + JSON.stringify(document.get(descriptor[NODE_ID]))); //to check
     //   if (!document.get(descriptor[NODE_ID]).result) {
     if(!this.descriptorExists(descriptor[NODE_ID])) {
         log.info("No descriptor with id" + descriptor[NODE_ID] + "found to update, registering a new one..");
         return this.register(descriptor);
+    }
+    var currentVersion = parseInt((this.getService(descriptor[NODE_ID])).info.version);
+    var versionToUpdateTo = parseInt(descriptor.info.version);
+    log.info("Current version: " + currentVersion);
+    log.info("Version to update to: " + versionToUpdateTo);
+    if(descriptor.info.version <= currentVersion){
+        log.info("This node already has the latest version");
+        return ;
     }
 
     log.info("Descriptor found, updating..");
