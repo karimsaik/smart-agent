@@ -31,9 +31,10 @@ try{
         log.info("api/removeService body exists");
         log.info("msgType: " + body.msgType);
         log.info("body: " + JSON.stringify(body));
+        log.info("role: " + body.role);
         if(body.msgType == "delete"){
             log.info("Node ID: " + (JSON.parse(body.payLoad))[NODE_ID]);
-            dir.removeService((JSON.parse(body.payLoad))[NODE_ID]);
+            dir.removeService((JSON.parse(body.payLoad))[NODE_ID], body.role);
             return;
         }
         return;

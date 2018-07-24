@@ -11,8 +11,9 @@ try{
     if(!body.descriptor){
         log.info("api/updateService Condition was true");
         log.info("msgType: " + body.msgType);
+        log.info("role: " + body.role);
         if(body.msgType == "update"){
-            return dir.updateService(JSON.parse(body.payLoad));
+            return dir.updateService(JSON.parse(body.payLoad), body.role);
         }
         return;
     }

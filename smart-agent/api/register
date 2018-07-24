@@ -11,8 +11,9 @@ try{
     if(!body.descriptor){
         log.info("api/register no descriptor found");
         log.info("msgType: " + body.msgType);
+        log.info("role: " + body.role);
         if(body.msgType == "new"){
-            dir.register(JSON.parse(body.payLoad));
+            dir.register(JSON.parse(body.payLoad), body.role);
             return;
         }
         return;
