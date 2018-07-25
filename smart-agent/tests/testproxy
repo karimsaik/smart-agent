@@ -1,0 +1,31 @@
+/*var nodeproxymodule = require("smart-agent/proxies/edge_node_001_module");
+try {
+	var proxy = new nodeproxymodule.edge_node_001(
+        {token:"UzIyQTgwRjc2NjptcXR0ZGV2aWNlOkEyRjlBM0MxNUI0RjM1NEIwQUY2Mjc4RUY3RkZGMkM3", 
+         username: "UzIyQTgwRjc2NkBzY3JpcHRy:UzIyQTgwRjc2NjpjaGl0Y2hhdEBzY3JpcHRy", 
+         password: "UzIyQTgwRjc2NjptcXR0ZGV2aWNlOkEyRjlBM0MxNUI0RjM1NEIwQUY2Mjc4RUY3RkZGMkM3"
+        });
+    //var resp = proxy.getTemperature({id:"office"});
+    var resp = proxy.setTemperature({target:23, location: "office"});
+    return resp;
+}catch(exception){
+    return exception;
+}*/
+var log = require("log");
+log.setLevel("info");
+
+var descriptorFile = require("./swagger2/master-descriptor");
+var desc = descriptorFile.desc;
+//log.info(JSON.stringify(desc));
+var nodeproxymodule = require("smart-agent/proxies/master_node_001_module");
+try {
+	var proxy = new nodeproxymodule.master_node_001(
+        {token:"WEY5MkMxNDdDNjpOb2RlMDAxOjc0OUIxQ0UwNjRFOTBBNEVCOEY1RTVEMjRGNzRDNzFE", 
+         username: "WEY5MkMxNDdDNkBzY3JpcHRy:WEY5MkMxNDdDNjpOb2RlMDAxQHNjcmlwdHI=", 
+         password: "WEY5MkMxNDdDNjpOb2RlMDAxOjc0OUIxQ0UwNjRFOTBBNEVCOEY1RTVEMjRGNzRDNzFE"
+        });
+    var resp = proxy.setRegister({"descriptor": desc});
+    return resp;
+}catch(exception){
+    return exception;
+}
