@@ -1,6 +1,7 @@
 var log = require("log"); log.setLevel("info");
 var proxyfactoryModule =  require("/smart-agent/service/proxyfactory");
 var constants = require("/smart-agents/constants");
+const masterNodeDescriptor = require("smart-agent/tests/swagger2/master-descriptor").desc;
 
 /**
  * Handles the authentication of remote requests
@@ -12,13 +13,12 @@ function Authorization() {
 }
 
 Authorization.prototype.authenticate = function(credentials) {
-        
-    
+    //if not master
     if (credentials.token) {
-      return;  
-    }    
-   
-    
+        return this.authenticateFromMaster(credentials);  
+    }
+
+
     throw {
         errorCode: constants.INVALID_AUTHENTICATION_MODE,
         errorCode: "The provided credential objet does not contain ant"
@@ -32,7 +32,16 @@ Authorization.prototype.authenticate = function(credentials) {
  */
 Authorization.prototype.authenticateFromMaster = function(credentials) {
 
-    var masterAgent = this.proxyFactory.getMasterAgentProxy();
+    try{
+        var config = {
+        "masterNodeDescriptor": masterNodeDescriptor,
+        "token": credentials.token
+    };
+    var masterAgent = this.proxyFactory.getMasterAgentProxy(config);
+    masterAgent.getVerifyToken();
+       }catch(exception){
+           return exception;
+       }
 };
 
 /**
@@ -43,7 +52,7 @@ Authorization.prototype.authenticateFromMaster = function(credentials) {
  */
 Authorization.prototype.getCredentialsForService = function(credentials) {
 
-    
+
 };
 
 Authorization.prototype.storeToken = function(credentials) {
