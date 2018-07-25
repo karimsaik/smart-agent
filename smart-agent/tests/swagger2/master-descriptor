@@ -156,9 +156,23 @@ var desc = {
                 ],
                 "responses": {
                     "200": {
-                        "description": "service with this key removed",
+                        "description": "remove service with this key",
                         "schema": {
                             "type": "object"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
+        },
+        "/smart-agent/api/verifyToken": {
+            "get": {
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "returns success if the token used to call this method is valid",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 },
