@@ -1,6 +1,5 @@
 var http = require('http');
 var mqtt = require('mqtt');
-
 function master_node_001(dto){
 	if (!dto || !dto.token || !dto.username || !dto.password){
 		throw {
@@ -15,15 +14,43 @@ function master_node_001(dto){
 	this.username = dto.username;
 	this.password = dto.password
 }
+master_node_001.prototype.getGetService = function(params){
+	if (!params || !params.id) throw {errorCode: 'Missing_Parameter', errorDetail: 'id is required'};
+	return this.sendHttpRequest(params, '/smart-agent/api/getService', 'get');
+};
+master_node_001.prototype.getListServices = function(params){
+	if (!params || !params.nodeId) throw {errorCode: 'Missing_Parameter', errorDetail: 'nodeId is required'};
+	if (!params || !params.category) throw {errorCode: 'Missing_Parameter', errorDetail: 'category is required'};
+	if (!params || !params.protocol) throw {errorCode: 'Missing_Parameter', errorDetail: 'protocol is required'};
+	if (!params || !params.pageNumber) throw {errorCode: 'Missing_Parameter', errorDetail: 'pageNumber is required'};
+	if (!params || !params.resultsPerPage) throw {errorCode: 'Missing_Parameter', errorDetail: 'resultsPerPage is required'};
+	if (!params || !params.sortOrder) throw {errorCode: 'Missing_Parameter', errorDetail: 'sortOrder is required'};
+	return this.sendHttpRequest(params, '/smart-agent/api/listServices', 'get');
+};
 master_node_001.prototype.setRegister = function(params){
-    
-    if (!params || !params.descriptor) throw {errorCode: 'Missing_Parameter', errorDetail: 'descriptor is required'};
+	if (!params || !params.descriptor) throw {errorCode: 'Missing_Parameter', errorDetail: 'descriptor is required'};
 	if(this.supportedProtocols[0].toLowerCase() == 'mqtt'){ //the order of supported protocols specifies which one to use first
 		var msg = {method: 'smart-agent/api/register', params:params};
 		this.sendMQTTMessage(msg, 'UzIyQTgwRjc2Ng==/ccc/invoke')
 	}else{
 		return this.sendHttpRequest(params, '/smart-agent/api/register', 'post', 'application/json');
 	}
+};
+master_node_001.prototype.setUpdateService = function(params){
+	if (!params || !params.descriptor) throw {errorCode: 'Missing_Parameter', errorDetail: 'descriptor is required'};
+	if(this.supportedProtocols[0].toLowerCase() == 'mqtt'){ //the order of supported protocols specifies which one to use first
+		var msg = {method: 'smart-agent/api/updateService', params:params};
+		this.sendMQTTMessage(msg, 'UzIyQTgwRjc2Ng==/ccc/invoke')
+	}else{
+		return this.sendHttpRequest(params, '/smart-agent/api/updateService', 'post', 'application/json');
+	}
+};
+master_node_001.prototype.getRemoveService = function(params){
+	if (!params || !params.id) throw {errorCode: 'Missing_Parameter', errorDetail: 'id is required'};
+	return this.sendHttpRequest(params, '/smart-agent/api/removeService', 'get');
+};
+master_node_001.prototype.getVerifyToken = function(params){
+	return this.sendHttpRequest(params, '/smart-agent/api/verifyToken', 'get');
 };
 
 master_node_001.prototype.sendHttpRequest = function(params, path, method, contentType) {
