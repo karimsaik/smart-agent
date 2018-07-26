@@ -69,6 +69,7 @@ Authorization.prototype.storeToken = function(credentials) {
 };
 
 Authorization.prototype.getVisitorToken = function(dto){
+
     if (!dto || !dto.id){
         throw {
             errorCode:'Missing_Parameter',
@@ -78,17 +79,24 @@ Authorization.prototype.getVisitorToken = function(dto){
 
     var directory = new directoryModule.Directory();
     if (directory.config.role != MASTER){
+
         log.info("Authorization.getVisitorToken not a master");
+
         var proxy = new proxyfactoryModule.ProxyFactory();
         var masterProxy = proxy.getMasterAgentProxy(directory.config);
         return masterProxy.getVisitorToken(dto);
     }
+
+    log.info("Authorization.getVisitorToken node is a master");
+
     var devReq = {
         query: 'requesterId = "' + dto.id + '"',
         fields: "visitorId"
     };
-    
+
     if(!this.deviceExists(devReq)){
+
+        log.info("Device does not exist");
 
         var name = util.randomId();
         var password = util.randomId();
@@ -103,26 +111,25 @@ Authorization.prototype.getVisitorToken = function(dto){
         var fields = {
             "visitorId": newVisitorId,
             "requesterId": dto.id,
-            "state": "0",
+            "tokensGenerated": 1,
             "meta.schema": VISITOR_TOKEN_SCHEMA
         };
-        log.info("Document creation: " + JSON.stringify(document.create(fields)));
-        
+
+        var token = device.generateToken(newVisitor.result.device.id);
         var createdDoc = document.create(fields);
         var docKey = createdDoc.result.document.key;
         log.info("Document key: " + docKey);
         log.info("visitorId:" + newVisitorId);
-        return device.generateToken(newVisitor.result.device.id);
+        return token;
     }else{
-        
+
+        log.info("Device exists");
+
         var docKey = document.query(devReq).result.documents[0].key;
-        var state = document.get(docKey).result.state;
+        var tokensGenerated = ++document.get(docKey).result.tokensGenerated;
         var visitorId = document.get(docKey).result.visitorId;
-        if(state == "0"){
-            document.update({"key": docKey, "state": "1", "meta.schema": VISITOR_TOKEN_SCHEMA});
-            return device.regenerateToken(visitorId);
-        }
-        document.update({"key": docKey, "state": "0", "meta.schema": VISITOR_TOKEN_SCHEMA});
+
+        return document.update({"key": docKey, "tokensGenerated": tokensGenerated, "meta.types": {"tokensGenerated": "numeric"}});
         return device.regenerateToken(visitorId);
     }
 };
