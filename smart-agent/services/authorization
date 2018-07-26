@@ -1,7 +1,14 @@
-var log = require("log"); log.setLevel("info");
-var proxyfactoryModule =  require("/smart-agent/service/proxyfactory");
-var constants = require("/smart-agents/constants");
+var log = require("log");
+log.setLevel("info");
+var proxyfactoryModule =  require("/smart-agent/services/proxyfactory");
+var constants = require("/smart-agent/common/constants");
+var device = require("device");
+var util = require("smart-agent/common/util");
+var document = require("document");
 const masterNodeDescriptor = require("smart-agent/tests/swagger2/master-descriptor").desc;
+const MASTER = "master";
+var directoryModule = require("./directory");
+const VISITOR_TOKEN_SCHEMA = "visitor_token";
 
 /**
  * Handles the authentication of remote requests
@@ -18,7 +25,6 @@ Authorization.prototype.authenticate = function(credentials) {
         return this.authenticateFromMaster(credentials);  
     }
 
-
     throw {
         errorCode: constants.INVALID_AUTHENTICATION_MODE,
         errorCode: "The provided credential objet does not contain ant"
@@ -32,16 +38,19 @@ Authorization.prototype.authenticate = function(credentials) {
  */
 Authorization.prototype.authenticateFromMaster = function(credentials) {
 
-    try{
-        var config = {
-        "masterNodeDescriptor": masterNodeDescriptor,
-        "token": credentials.token
+    log.info("Authorization.authenticateFromMaster credentials: " + JSON.stringify(credentials));
+    var config = {
+        "masterAgent": {
+            "username": "username",
+            "password": "password",
+            "token": credentials.token
+        },
+        "masterNodeDescriptor": masterNodeDescriptor
+
     };
     var masterAgent = this.proxyFactory.getMasterAgentProxy(config);
+    log.info("Authorization.authenticateFromMaster master agent: " + JSON.stringify(masterAgent));
     masterAgent.getVerifyToken();
-       }catch(exception){
-           return exception;
-       }
 };
 
 /**
@@ -57,4 +66,68 @@ Authorization.prototype.getCredentialsForService = function(credentials) {
 
 Authorization.prototype.storeToken = function(credentials) {
 
+};
+
+Authorization.prototype.getVisitorToken = function(dto){
+    if (!dto || !dto.id){
+        throw {
+            errorCode:'Missing_Parameter',
+            errorDetail:'dto.id should be defined'
+        };
+    }
+
+    var directory = new directoryModule.Directory();
+    if (directory.config.role != MASTER){
+        log.info("Authorization.getVisitorToken not a master");
+        var proxy = new proxyfactoryModule.ProxyFactory();
+        var masterProxy = proxy.getMasterAgentProxy(directory.config);
+        return masterProxy.getVisitorToken(dto);
+    }
+    var devReq = {
+        query: 'requesterId = "' + dto.id + '"',
+        fields: "visitorId"
+    };
+    
+    if(!this.deviceExists(devReq)){
+
+        var name = util.randomId();
+        var password = util.randomId();
+        var dev = {
+            "name": name,
+            "password": password
+        };
+
+        log.info("Device: \n" + JSON.stringify(dev));
+        var newVisitor = device.create(dev);
+        var newVisitorId = newVisitor.result.device.id;
+        var fields = {
+            "visitorId": newVisitorId,
+            "requesterId": dto.id,
+            "state": "0",
+            "meta.schema": VISITOR_TOKEN_SCHEMA
+        };
+        log.info("Document creation: " + JSON.stringify(document.create(fields)));
+        
+        var createdDoc = document.create(fields);
+        var docKey = createdDoc.result.document.key;
+        log.info("Document key: " + docKey);
+        log.info("visitorId:" + newVisitorId);
+        return device.generateToken(newVisitor.result.device.id);
+    }else{
+        
+        var docKey = document.query(devReq).result.documents[0].key;
+        var state = document.get(docKey).result.state;
+        var visitorId = document.get(docKey).result.visitorId;
+        if(state == "0"){
+            document.update({"key": docKey, "state": "1", "meta.schema": VISITOR_TOKEN_SCHEMA});
+            return device.regenerateToken(visitorId);
+        }
+        document.update({"key": docKey, "state": "0", "meta.schema": VISITOR_TOKEN_SCHEMA});
+        return device.regenerateToken(visitorId);
+    }
+};
+
+Authorization.prototype.deviceExists = function(devReq){
+    return document.query(devReq).result.documents[0];
+    //return false;
 };
