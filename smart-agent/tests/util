@@ -134,3 +134,17 @@ function toShortDate(date) {
     dateStr = dateStr.substring(0, dateStr.indexOf("T"));
     return dateStr;
 }
+
+function randomId() {
+    
+    var choice = "0123456789abcdefghijklmnopqrstuvwxyz";
+    var max = 12;
+    var id = "";
+    for (var i = 0; i < max; i++) {
+        
+        var index = Math.round(Math.random() * (choice.length - 1));
+        id += choice[index];
+    }
+    
+    return id;
+}
