@@ -1,26 +1,27 @@
 /***************************************
  * To be replaced with persisted config
  **************************************/
+const SCHEDULE_DOC = "script-schedule-handle-list";
+const DELETE_EXP_DEVICES_HANDLE = "deleteExpDevicesHandle";
 var log = require("log");
 log.setLevel("info");
-var role = "collaborator"; // one of master or collaborator
-
+var role = "master"; // one of master or collaborator
+var deviceTTL = 2; //in minutes
+var tokenTTL = 1;
 var masterNode = require("/smart-agent/tests/swagger2/master-descriptor");
 var masterNodeDescriptor = masterNode.desc;
-
 //log.info(JSON.stringify(masterNodeDescriptor));
 /*
  * Required data about the corresponding master node
  */
-
 var masterAgent = {
     http: "https://iotfun.scriptrapps.io", 
     mqtt: "mqtt://mqtt.scriptr.io",
     authenticate: "smart-agent/api/authenticate",
-    token: "",
-    username: "",
-    password: "",
+    token: "QTA0ODE1RTZENDpzY3JpcHRyOjhFQzhBQzU3NzREQzM4QjhFNEE0MEQxQkQ1MEFEOTg0",
+    username: "QTA0ODE1RTZENEBzY3JpcHRy:QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxQHNjcmlwdHI=",
+    password: "QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxOkZBODczODEwQ0IxMDVFQjA5MkRENDE4QUMwRUE2NzFB",
     collaborationTopic: "collaboration_topic",
-    pubsubTopic: "",
-    invokeTopic: ""
+    pubsubTopic: "QTA0ODE1RTZENA==/channel_descriptor/message",
+    invokeTopic: "QTA0ODE1RTZENA==/channel_descriptor/invoke"
 };
