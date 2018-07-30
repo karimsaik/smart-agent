@@ -1,0 +1,9 @@
+var authorizationModule = require("smart-agent/services/authorization");
+
+try{
+    var id = request.user.login;
+    var authorization = new authorizationModule.Authorization();
+    return authorization.visitorToken({"id": id});
+}catch(exception){
+    return exception;
+}
