@@ -9,6 +9,7 @@ const masterNodeDescriptor = require("smart-agent/tests/swagger2/master-descript
 const MASTER = "master";
 var directoryModule = require("./directory");
 const VISITOR_TOKEN_SCHEMA = "visitor_token";
+var config = require("smart-agent/setup/config");
 
 /**
  * Handles the authentication of remote requests
@@ -68,7 +69,7 @@ Authorization.prototype.storeToken = function(credentials) {
 
 };
 
-Authorization.prototype.getVisitorToken = function(dto){
+Authorization.prototype.visitorToken = function(dto){
 
     if (!dto || !dto.id){
         throw {
@@ -80,14 +81,13 @@ Authorization.prototype.getVisitorToken = function(dto){
     var directory = new directoryModule.Directory();
     if (directory.config.role != MASTER){
 
-        log.info("Authorization.getVisitorToken not a master");
+        log.info("Authorization.visitorToken not a master");
 
-        var proxy = new proxyfactoryModule.ProxyFactory();
-        var masterProxy = proxy.getMasterAgentProxy(directory.config);
+        var masterProxy = this.proxyFactory.getMasterAgentProxy(directory.config);
         return masterProxy.getVisitorToken(dto);
     }
 
-    log.info("Authorization.getVisitorToken node is a master");
+    log.info("Authorization.visitorToken node is a master");
 
     var devReq = {
         query: 'requesterId = "' + dto.id + '"',
@@ -115,12 +115,12 @@ Authorization.prototype.getVisitorToken = function(dto){
             "meta.schema": VISITOR_TOKEN_SCHEMA
         };
 
-        var token = device.generateToken(newVisitor.result.device.id);
+        var token = device.generateToken(newVisitor.result.device.id).result.token;
         var createdDoc = document.create(fields);
         var docKey = createdDoc.result.document.key;
         log.info("Document key: " + docKey);
         log.info("visitorId:" + newVisitorId);
-        return token;
+        return {"visitorToken": token, "tokenTTL": config.tokenTTL};
     }else{
 
         log.info("Device exists");
@@ -129,12 +129,13 @@ Authorization.prototype.getVisitorToken = function(dto){
         var tokensGenerated = ++document.get(docKey).result.tokensGenerated;
         var visitorId = document.get(docKey).result.visitorId;
 
-        return document.update({"key": docKey, "tokensGenerated": tokensGenerated, "meta.types": {"tokensGenerated": "numeric"}});
-        return device.regenerateToken(visitorId);
+        document.update({"key": docKey, "tokensGenerated": tokensGenerated, "meta.types": {"tokensGenerated": "numeric"}});
+        var token = device.regenerateToken(visitorId).result.token;
+        return {"visitorToken": token, "tokenTTL": config.tokenTTL};
     }
 };
 
 Authorization.prototype.deviceExists = function(devReq){
-    return document.query(devReq).result.documents[0];
-    //return false;
+    //return document.query(devReq).result.documents[0];
+    return false;
 };
