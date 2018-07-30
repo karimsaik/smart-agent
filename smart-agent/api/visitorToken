@@ -1,5 +1,4 @@
 var authorizationModule = require("smart-agent/services/authorization");
-
 try{
     var id = request.user.login;
     var authorization = new authorizationModule.Authorization();
