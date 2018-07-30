@@ -18,10 +18,10 @@ var masterAgent = {
     http: "https://iotfun.scriptrapps.io", 
     mqtt: "mqtt://mqtt.scriptr.io",
     authenticate: "smart-agent/api/authenticate",
-    token: "QTA0ODE1RTZENDpzY3JpcHRyOjhFQzhBQzU3NzREQzM4QjhFNEE0MEQxQkQ1MEFEOTg0",
-    username: "QTA0ODE1RTZENEBzY3JpcHRy:QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxQHNjcmlwdHI=",
-    password: "QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxOkZBODczODEwQ0IxMDVFQjA5MkRENDE4QUMwRUE2NzFB",
+    token: "",
+    username: "",
+    password: "",
     collaborationTopic: "collaboration_topic",
-    pubsubTopic: "QTA0ODE1RTZENA==/channel_descriptor/message",
-    invokeTopic: "QTA0ODE1RTZENA==/channel_descriptor/invoke"
+    pubsubTopic: "",
+    invokeTopic: ""
 };
