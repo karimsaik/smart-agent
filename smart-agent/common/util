@@ -16,3 +16,37 @@ function removeDocumentMetadata(doc) {
     
     return doc;
 }
+
+function randomId() {
+    
+    var choice = "0123456789abcdefghijklmnopqrstuvwxyz";
+    var max = 12;
+    var id = "";
+    for (var i = 0; i < max; i++) {
+        
+        var index = Math.round(Math.random() * (choice.length - 1));
+        id += choice[index];
+    }
+    
+    return id;
+}
+
+function toScriptrDataFormat(aDate) {
+
+    var date = null;
+    var dateStr = "";
+    try {
+        date = new Date(aDate);
+        dateStr = date.toISOString();
+    }catch(exception){
+
+        throw {
+            errorCode: "Invalid_Date",
+            errorDetail: "toScriptrDataFormat: aDate does not represent a valid date"
+        };
+    }
+    
+    dateStr = dateStr.substring(0,dateStr.lastIndexOf("."));
+    dateStr+= "+0000";
+    return dateStr;
+}
