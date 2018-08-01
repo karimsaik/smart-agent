@@ -17,42 +17,99 @@ var config = require("smart-agent/setup/config");
  * @constructor
  */
 function Authorization() {
+
     this.proxyFactory = new proxyfactoryModule.ProxyFactory();
 }
 
+/**
+ * @method authenticate
+ * @param {Object} credentials: the token to authenticate
+ * @return {String} if the token is valid returns success else throws an error
+ * @throw {Error}
+ */
 Authorization.prototype.authenticate = function(credentials) {
     //if not master
-    if (credentials.token) {
-        return this.authenticateFromMaster(credentials);  
-    }
+    var directory = new directoryModule.Directory();
+    if (directory.config != MASTER) {
+        if (credentials.token) {
+            return this.authenticateFromMaster(credentials).response.result;  
+        }
 
-    throw {
-        errorCode: constants.INVALID_AUTHENTICATION_MODE,
-        errorCode: "The provided credential objet does not contain ant"
+        throw {
+            errorCode: constants.INVALID_AUTHENTICATION_MODE,
+            errorCode: "The provided credential object does not contain a token"
+        }  
     }
 };
 
 /**
- * Convey a token that was reveived in the "x-auhtorization" header to the master agent in order to
+ * Convey a token that was received in the "x-auhtorization" header to the master agent in order to
  * authenticate it. If the master agent is able to authenticate the corresponding device as part of  
  * the collaboration boundary, add the device locally and generate a token 
+ * @method authenticateFromMaster
+ * @param {Object} credentials: the token to authenticate
+ * @return {String} if the token is valid returns success else throws an INVALID_TOKEN error
  */
 Authorization.prototype.authenticateFromMaster = function(credentials) {
 
     log.info("Authorization.authenticateFromMaster credentials: " + JSON.stringify(credentials));
     var config = {
+
         "masterAgent": {
             "username": "username",
             "password": "password",
             "token": credentials.token
         },
         "masterNodeDescriptor": masterNodeDescriptor
-
     };
+
     var masterAgent = this.proxyFactory.getMasterAgentProxy(config);
     log.info("Authorization.authenticateFromMaster master agent: " + JSON.stringify(masterAgent));
-    masterAgent.getVerifyToken();
+    return masterAgent.getVerifyToken();
 };
+
+/**
+ * Stores the recently generated token and its expiration date
+ * @method storeToken
+ * @param {Object} credentials: the token to store
+ * @param {date} tokenExpirationDate: the token's expiration date
+ */
+Authorization.prototype.storeToken = function(credentials, tokenExpirationDate) {
+
+    document.save({visitorToken: credentials.visitorToken, tokenExpDate: tokenExpirationDate, "meta.types": {tokenExpDate: "date"}});
+};
+
+/**
+ * Look for a valid token in the documents and returns one if it exists
+ * @method getValidToken
+ * @return {String} if token exists returns it else it return null
+ */
+Authorization.prototype.getValidToken = function(){
+
+    var date = new Date();
+    date = util.toScriptrDataFormat(date);
+    var validTokenDoc = document.query({query: 'tokenExpDate<date> >"' + date + '"', fields: "*"}).result.documents[0];
+    if (validTokenDoc) {
+
+        return validTokenDoc.visitorToken;
+    }
+    return;
+};
+
+/**
+ * Get token if it has exceeded its expiration date and delete it
+ * @method deleteExpiredToken
+ */
+Authorization.prototype.deleteExpiredToken = function(){
+
+    var date = new Date();
+    date = util.toScriptrDataFormat(date);
+    var expiredToken = document.query({query: 'tokenExpDate<date> <"' + date + '"', fields: "tokenExpDate"}).result.documents[0];
+    if(expiredToken){
+        log.info("Expired token found, deleting");
+        document.delete(expiredToken.key);
+    }
+}
 
 /**
  * Get the credentials needed to invoke remote services on a third party node
@@ -60,18 +117,9 @@ Authorization.prototype.authenticateFromMaster = function(credentials) {
  * by sending credentials used to authenticate at master. The latter will provide temporary credentials to the 
  * caller
  */
-Authorization.prototype.getCredentialsForService = function(credentials) {
+Authorization.prototype.visitorToken = function(dto) {
 
-
-};
-
-Authorization.prototype.storeToken = function(credentials) {
-
-};
-
-Authorization.prototype.visitorToken = function(dto){
-
-    if (!dto || !dto.id){
+    if (!dto || !dto.id) {
         throw {
             errorCode:'Missing_Parameter',
             errorDetail:'dto.id should be defined'
@@ -79,36 +127,46 @@ Authorization.prototype.visitorToken = function(dto){
     }
 
     var directory = new directoryModule.Directory();
-    if (directory.config.role != MASTER){
+    if (directory.config.role != MASTER) {
 
-        log.info("Authorization.visitorToken not a master");
+        var token = this.getValidToken();
+        if(token){
+            return token;
+        }
+        log.info("No valid token");
+        this.deleteExpiredToken();
 
         var masterProxy = this.proxyFactory.getMasterAgentProxy(directory.config);
-        return masterProxy.getVisitorToken(dto);
+        var res = masterProxy.getVisitorToken(dto).response.result;
+
+        log.info("Storing new token");
+        this.storeToken({visitorToken: res.visitorToken}, res.tokenExpDate);
+        return res;
     }
 
     log.info("Authorization.visitorToken node is a master");
+    var deviceReq = {
 
-    var devReq = {
         query: 'requesterId = "' + dto.id + '"',
         fields: "visitorId"
     };
 
-    if(!this.deviceExists(devReq)){
+    if (!this.deviceExists(deviceReq)) {
 
-        log.info("Device does not exist");
-
+        log.error("Device does not exist");
         var name = util.randomId();
         var password = util.randomId();
-        var dev = {
+        var device = {
+
             "name": name,
             "password": password
         };
 
-        log.info("Device: \n" + JSON.stringify(dev));
-        var newVisitor = device.create(dev);
+        log.info("Device: \n" + JSON.stringify(device));
+        var newVisitor = device.create(device);
         var newVisitorId = newVisitor.result.device.id;
         var fields = {
+
             "visitorId": newVisitorId,
             "requesterId": dto.id,
             "tokensGenerated": 1,
@@ -116,26 +174,43 @@ Authorization.prototype.visitorToken = function(dto){
         };
 
         var token = device.generateToken(newVisitor.result.device.id).result.token;
-        var createdDoc = document.create(fields);
-        var docKey = createdDoc.result.document.key;
-        log.info("Document key: " + docKey);
-        log.info("visitorId:" + newVisitorId);
-        return {"visitorToken": token, "tokenTTL": config.tokenTTL};
+        document.create(fields);
+        return {"visitorToken": token, "tokenExpDate": this.getTokenExpDate(newVisitorId)};
     }else{
 
         log.info("Device exists");
 
-        var docKey = document.query(devReq).result.documents[0].key;
+        var docKey = document.query(deviceReq).result.documents[0].key;
         var tokensGenerated = ++document.get(docKey).result.tokensGenerated;
         var visitorId = document.get(docKey).result.visitorId;
 
         document.update({"key": docKey, "tokensGenerated": tokensGenerated, "meta.types": {"tokensGenerated": "numeric"}});
         var token = device.regenerateToken(visitorId).result.token;
-        return {"visitorToken": token, "tokenTTL": config.tokenTTL};
+        return {"visitorToken": token, "tokenExpDate": this.getTokenExpDate(visitorId)};
     }
 };
 
-Authorization.prototype.deviceExists = function(devReq){
-    //return document.query(devReq).result.documents[0];
+/**
+ * From the document, get the token's expiration date
+ * @method getTokenExpDate
+ * @param {String} visitorId: the device's Id
+ * @return {Date} The expiration date of the token
+ */
+Authorization.prototype.getTokenExpDate = function(visitorId) {
+
+    var lastModifiedDate = document.query({query: 'visitorId ="' + visitorId + '"', fields: "lastModifiedDate"}).result.documents[0].lastModifiedDate;
+    var expDate = new Date(lastModifiedDate);
+    expDate = expDate.setMinutes(lastModifiedDate.getMinutes() + config.tokenTTL);
+    return util.toScriptrDataFormat(expDate);
+};
+
+/**
+ * Return null if there's no document for the mentioned device to show that it does not exist
+ * @method deviceExists
+ * @param {Obejct} deviceReq: filter that contains the conditions for the document search 
+ * @return {Object} if the device doesn't exist returns null
+ */
+Authorization.prototype.deviceExists = function(deviceReq){
+    //return document.query(deviceReq).result.documents[0];
     return false;
 };

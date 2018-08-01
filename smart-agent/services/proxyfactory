@@ -7,6 +7,9 @@ const HTTP_BASED = "scriptrapps.io";
 const MQTT_BASED = "scriptr.io";
 var constants = require("/smart-agent/common/constants");
 var config = require("smart-agent/setup/config");
+var log = require("log");
+log.setLevel("info");
+
 /**
  * This class is used to obtain instances of proxies to remote services
  * @class ProxyFactory
@@ -17,14 +20,14 @@ function ProxyFactory() {
 }
 
 /**
- * A specific getProxy method that returns a proxy to the master agent of the current node
+ * A specific getProxy method that returns a proxy of the master agent of the current node
  * @method getMasterAgentProxy
  * @return {Object} master agent proxy
- * @throw {Error} : if the current agent is the master agent
+ * @throw {Error} : if the current agent is a master agent
  */
 ProxyFactory.prototype.getMasterAgentProxy = function(config) {
 	
-    log.info("getMasterAgentProxy role: " + config.role);
+    log.debug("getMasterAgentProxy role: " + config.role);
     if(config.role == "master"){
         throw{
             errorCode: "Role not allowed",
@@ -33,14 +36,14 @@ ProxyFactory.prototype.getMasterAgentProxy = function(config) {
     }
     try{
         var masterDescriptor = config.masterNodeDescriptor;
-		log.info("masterDescriptor: \n" + JSON.stringify(masterDescriptor));
+		log.debug("masterDescriptor: \n" + JSON.stringify(masterDescriptor));
         var initParams = {
             token: config.masterAgent.token,
             username: config.masterAgent.username,
             password: config.masterAgent.password
         };
-        log.info("initParams: \n" + JSON.stringify(initParams));
-        log.info("Now excecuting getProxy");
+        log.debug("initParams: \n" + JSON.stringify(initParams));
+        log.debug("Now excecuting getProxy");
         return this.getProxy(masterDescriptor, initParams);
     }catch(exception){
         return exception;
@@ -50,7 +53,7 @@ ProxyFactory.prototype.getMasterAgentProxy = function(config) {
 /**
  * @method getProxy
  * @param {Object} descriptor: descriptor of the remote service
- * @param {Object} initParams: initialization parameters, as expected by the constructor of the proxy (token, username, password
+ * @param {Object} initParams: initialization parameters, as expected by the constructor of the proxy (token, username, password)
  * @return {Object} instance of a proxy
  */
 ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
@@ -73,9 +76,9 @@ ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
     }
 
     var className = this.getClassNameFromDescriptor(descriptor);
-    log.info("Class name: " + className);
+    log.debug("Class name: " + className);
     if (!this.proxyExists(className)) {
-        log.info("In ProxyFactory.getProxy proxy does no exist");
+        log.error("In ProxyFactory.getProxy proxy does no exist");
         this.generateProxy(descriptor);
     }
 	log.info("In ProxyFactory.getProxy proxy exists");
@@ -125,7 +128,7 @@ ProxyFactory.prototype.getClassNameFromDescriptor = function(descriptor) {
 
 /**
  * Generate a proxy script + class based on a remote service descriptor. Proxies can be used
- * by local scripts to invoke remote services as if they were locally objects.
+ * by local scripts to invoke remote services as if they were local objects.
  * The proxy script is saved in /smart-agent/proxies
  * @method generateProxy
  * @param {Object} descriptor: descriptor of the remote service 
@@ -155,6 +158,13 @@ ProxyFactory.prototype.generateProxy = function(descriptor) {
     return this.saveProxy(className + "_module", moduleDefStr);
 };
 
+/**
+ * Generate methods to add to the proxy being generated in this.generateProxy, based on the path object of the server's descriptor
+ * @method generateMethods
+ * @param {String} name: the class name of the proxy
+ * @param {Object} path: all of paths listed in the path object of the descriptor
+ * @return {String} a set of methods
+ */
 ProxyFactory.prototype.generateMethods = function(name, path) {
 
     var keys = Object.keys(path);
@@ -193,6 +203,12 @@ ProxyFactory.prototype.generateMethods = function(name, path) {
     return functionStr;
 };
 
+/**
+ * @method addParametersValidation
+ * @param {Object} path: a specific path from the path object of a descriptor
+ * @param {String} method: the request method that can be used for that path (post, get)
+ * @return {Object} code that checks that the required parameters of the generated method are passed correctly
+ */
 ProxyFactory.prototype.addParametersValidation = function(path, method) {
 
     var parameters = path[method].parameters; 
@@ -213,6 +229,12 @@ ProxyFactory.prototype.addParametersValidation = function(path, method) {
     return checkParamStr;
 };
 
+/**
+ * Generate a method that makes http calls based on the class name given in the parameter
+ * @method generateHttpCaller
+ * @param {Object} name: the class name of the proxy
+ * @return {String} a sendHttpRequest method for the class specified in the parameter
+ */
 ProxyFactory.prototype.generateHttpCaller = function(name) {
 
     var str = name + ".prototype.sendHttpRequest = function(params, path, method, contentType) {\n" +
@@ -248,6 +270,12 @@ ProxyFactory.prototype.generateHttpCaller = function(name) {
     return str;
 };
 
+/**
+ * Generate a method that makes mqtt calls based on the class name and the topic given in the parameters
+ * @method generateMQTTCaller
+ * @param {String} name: the class name of the proxy
+ * @return {String} a sendMQTTMessage method for the class specified in the parameter
+ */
 ProxyFactory.prototype.generateMQTTCaller = function(name, topic) {
 
     var str = name + ".prototype.sendMQTTMessage = function(msg, topic) {\n" +
@@ -266,6 +294,12 @@ ProxyFactory.prototype.generateMQTTCaller = function(name, topic) {
     return str;
 };
 
+/**
+ * @method saveProxy
+ * @param {String} name: the name of the script of the proxy
+ * @param {String} proxyDef: the generated code for the proxy
+ * @return {Object} success if the script was created
+ */
 ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
 
     var data = {
@@ -289,6 +323,12 @@ ProxyFactory.prototype.saveProxy = function(name, proxyDef) {
     return resp;
 };
 
+/**
+ * Extract the endpoints from the "x-servers" object of the descriptor and returns them
+ * @method getEnpointsFromDescriptor
+ * @param {Object} descriptor: descriptor of the remote service
+ * @return {Object} the http and mqtt endpoints
+ */
 ProxyFactory.prototype.getEnpointsFromDescriptor = function(descriptor) {
 
     var servers = descriptor["x-servers"];
