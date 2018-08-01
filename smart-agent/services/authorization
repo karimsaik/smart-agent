@@ -156,14 +156,14 @@ Authorization.prototype.visitorToken = function(dto) {
         log.error("Device does not exist");
         var name = util.randomId();
         var password = util.randomId();
-        var device = {
+        var dev = {
 
             "name": name,
             "password": password
         };
 
-        log.info("Device: \n" + JSON.stringify(device));
-        var newVisitor = device.create(device);
+        log.info("Device: \n" + JSON.stringify(dev));
+        var newVisitor = device.create(dev);
         var newVisitorId = newVisitor.result.device.id;
         var fields = {
 
@@ -200,7 +200,7 @@ Authorization.prototype.getTokenExpDate = function(visitorId) {
 
     var lastModifiedDate = document.query({query: 'visitorId ="' + visitorId + '"', fields: "lastModifiedDate"}).result.documents[0].lastModifiedDate;
     var expDate = new Date(lastModifiedDate);
-    expDate = expDate.setMinutes(lastModifiedDate.getMinutes() + config.tokenTTL);
+    expDate = expDate.setMinutes(expDate.getMinutes() + config.tokenTTL);
     return util.toScriptrDataFormat(expDate);
 };
 
