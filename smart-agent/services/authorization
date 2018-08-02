@@ -28,6 +28,7 @@ function Authorization() {
  * @throw {Error}
  */
 Authorization.prototype.authenticate = function(credentials) {
+    
     //if not master
     var directory = new directoryModule.Directory();
     if (directory.config != MASTER) {
@@ -38,14 +39,14 @@ Authorization.prototype.authenticate = function(credentials) {
         throw {
             errorCode: constants.INVALID_AUTHENTICATION_MODE,
             errorCode: "The provided credential object does not contain a token"
-        }  
+        }
     }
 };
 
 /**
  * Convey a token that was received in the "x-auhtorization" header to the master agent in order to
  * authenticate it. If the master agent is able to authenticate the corresponding device as part of  
- * the collaboration boundary, add the device locally and generate a token 
+ * the collaboration boundary, add the device locally and generate a token
  * @method authenticateFromMaster
  * @param {Object} credentials: the token to authenticate
  * @return {String} if the token is valid returns success else throws an INVALID_TOKEN error
@@ -69,49 +70,6 @@ Authorization.prototype.authenticateFromMaster = function(credentials) {
 };
 
 /**
- * Stores the recently generated token and its expiration date
- * @method storeToken
- * @param {Object} credentials: the token to store
- * @param {date} tokenExpirationDate: the token's expiration date
- */
-Authorization.prototype.storeToken = function(credentials, tokenExpirationDate) {
-
-    document.save({visitorToken: credentials.visitorToken, tokenExpDate: tokenExpirationDate, "meta.types": {tokenExpDate: "date"}});
-};
-
-/**
- * Look for a valid token in the documents and returns one if it exists
- * @method getValidToken
- * @return {String} if token exists returns it else it return null
- */
-Authorization.prototype.getValidToken = function(){
-
-    var date = new Date();
-    date = util.toScriptrDataFormat(date);
-    var validTokenDoc = document.query({query: 'tokenExpDate<date> >"' + date + '"', fields: "*"}).result.documents[0];
-    if (validTokenDoc) {
-
-        return validTokenDoc.visitorToken;
-    }
-    return;
-};
-
-/**
- * Get token if it has exceeded its expiration date and delete it
- * @method deleteExpiredToken
- */
-Authorization.prototype.deleteExpiredToken = function(){
-
-    var date = new Date();
-    date = util.toScriptrDataFormat(date);
-    var expiredToken = document.query({query: 'tokenExpDate<date> <"' + date + '"', fields: "tokenExpDate"}).result.documents[0];
-    if(expiredToken){
-        log.info("Expired token found, deleting");
-        document.delete(expiredToken.key);
-    }
-}
-
-/**
  * Get the credentials needed to invoke remote services on a third party node
  * First checks if credentials are available locally, if not, should ask for credentials agains the 3rd party
  * by sending credentials used to authenticate at master. The latter will provide temporary credentials to the 
@@ -129,18 +87,18 @@ Authorization.prototype.visitorToken = function(dto) {
     var directory = new directoryModule.Directory();
     if (directory.config.role != MASTER) {
 
-        var token = this.getValidToken();
+        var token = this._getValidTokenFromDoc();
         if(token){
             return token;
         }
         log.info("No valid token");
-        this.deleteExpiredToken();
+        this._deleteExpiredToken();
 
         var masterProxy = this.proxyFactory.getMasterAgentProxy(directory.config);
         var res = masterProxy.getVisitorToken(dto).response.result;
 
         log.info("Storing new token");
-        this.storeToken({visitorToken: res.visitorToken}, res.tokenExpDate);
+        this._storeToken({visitorToken: res.visitorToken}, res.tokenExpDate);
         return res;
     }
 
@@ -151,7 +109,7 @@ Authorization.prototype.visitorToken = function(dto) {
         fields: "visitorId"
     };
 
-    if (!this.deviceExists(deviceReq)) {
+    if (!this._deviceExists(deviceReq)) {
 
         log.error("Device does not exist");
         var name = util.randomId();
@@ -175,7 +133,7 @@ Authorization.prototype.visitorToken = function(dto) {
 
         var token = device.generateToken(newVisitor.result.device.id).result.token;
         document.create(fields);
-        return {"visitorToken": token, "tokenExpDate": this.getTokenExpDate(newVisitorId)};
+        return {"visitorToken": token, "tokenExpDate": this._getTokenExpDate(newVisitorId)};
     }else{
 
         log.info("Device exists");
@@ -186,17 +144,17 @@ Authorization.prototype.visitorToken = function(dto) {
 
         document.update({"key": docKey, "tokensGenerated": tokensGenerated, "meta.types": {"tokensGenerated": "numeric"}});
         var token = device.regenerateToken(visitorId).result.token;
-        return {"visitorToken": token, "tokenExpDate": this.getTokenExpDate(visitorId)};
+        return {"visitorToken": token, "tokenExpDate": this._getTokenExpDate(visitorId)};
     }
 };
 
 /**
  * From the document, get the token's expiration date
- * @method getTokenExpDate
+ * @method _getTokenExpDate
  * @param {String} visitorId: the device's Id
  * @return {Date} The expiration date of the token
  */
-Authorization.prototype.getTokenExpDate = function(visitorId) {
+Authorization.prototype._getTokenExpDate = function(visitorId) {
 
     var lastModifiedDate = document.query({query: 'visitorId ="' + visitorId + '"', fields: "lastModifiedDate"}).result.documents[0].lastModifiedDate;
     var expDate = new Date(lastModifiedDate);
@@ -206,11 +164,54 @@ Authorization.prototype.getTokenExpDate = function(visitorId) {
 
 /**
  * Return null if there's no document for the mentioned device to show that it does not exist
- * @method deviceExists
+ * @method _deviceExists
  * @param {Obejct} deviceReq: filter that contains the conditions for the document search 
  * @return {Object} if the device doesn't exist returns null
  */
-Authorization.prototype.deviceExists = function(deviceReq){
+Authorization.prototype._deviceExists = function(deviceReq){
     //return document.query(deviceReq).result.documents[0];
     return false;
 };
+
+/**
+ * Stores the recently generated token and its expiration date
+ * @method _storeToken
+ * @param {Object} credentials: the token to store
+ * @param {date} tokenExpirationDate: the token's expiration date
+ */
+Authorization.prototype._storeToken = function(credentials, tokenExpirationDate) {
+
+    document.save({visitorToken: credentials.visitorToken, tokenExpDate: tokenExpirationDate, "meta.types": {tokenExpDate: "date"}});
+};
+
+/**
+ * Look for a valid token in the documents and returns one if it exists
+ * @method _getValidTokenFromDoc
+ * @return {String} if token exists returns it else it return null
+ */
+Authorization.prototype._getValidTokenFromDoc = function(){
+
+    var date = new Date();
+    date = util.toScriptrDataFormat(date);
+    var validTokenDoc = document.query({query: 'tokenExpDate<date> >"' + date + '"', fields: "*"}).result.documents[0];
+    if (validTokenDoc) {
+
+        return validTokenDoc.visitorToken;
+    }
+    return;
+};
+
+/**
+ * Get token if it has exceeded its expiration date and delete it
+ * @method _deleteExpiredToken
+ */
+Authorization.prototype._deleteExpiredToken = function(){
+
+    var date = new Date();
+    date = util.toScriptrDataFormat(date);
+    var expiredToken = document.query({query: 'tokenExpDate<date> <"' + date + '"', fields: "tokenExpDate"}).result.documents[0];
+    if(expiredToken){
+        log.info("Expired token found, deleting");
+        document.delete(expiredToken.key);
+    }
+}
