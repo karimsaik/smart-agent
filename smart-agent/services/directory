@@ -52,8 +52,9 @@ Directory.prototype.register = function(descriptor, role, callback) {
         throw error;
     }
 
-    if (this.descriptorExists(descriptor[NODE_ID])){
+    if (this.descriptorExists(descriptor[NODE_ID])) {
 
+        log.info("duplicate descriptor");
         throw{
 
             errorCode: "Duplicate_Descriptor",
@@ -64,42 +65,12 @@ Directory.prototype.register = function(descriptor, role, callback) {
     if (this.config.role == MASTER) {
 
         log.debug("Register role: " + this.config.role);
-        this.broadcastDescriptor(this.makeMessage("new", descriptor));
+        this.broadcastDescriptor(this._makeMessage("new", descriptor));
     }else{
         if(role != MASTER){
             log.info("Directory.register sending descriptor to master");
-            this.sendServiceToMaster(descriptor);
+            this._sendServiceToMaster(descriptor);
         }
-    }
-};
-
-/**
- * As a subordinate directory, call the register method of the master directory
- * @method sendServiceToMaster
- * @param {Object} [descriptor] extended OpenAPI descriptor of the service
- * @throw {Error}
- */
-Directory.prototype.sendServiceToMaster = function(descriptor) {
-
-    if (!descriptor) {
-        var error = {
-
-            errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.sendServiceToMaster: descriptor " + constants.MISSING_PARAMETER_MSG
-        };
-
-        throw error;
-    }
-    try{
-
-        var proxy = new proxyFactory.ProxyFactory();
-        var masterProxy = proxy.getMasterAgentProxy(this.config);
-        log.debug("Directory.sendServiceToMaster masterProxy: " + JSON.stringify(masterProxy));
-
-        masterProxy.setRegister({"descriptor": descriptor});
-    }catch(exception){
-
-        return exception;
     }
 };
 
@@ -125,9 +96,9 @@ Directory.prototype.addToLocalStorage = function(descriptor, callback) {
 
         throw error;
     }
-    
-	log.info("Directory.register, adding descriptor to local storage");
-    
+
+    log.info("Directory.register, adding descriptor to local storage");
+
     var descriptorObj = {
 
         "meta.schema": SERVICE_DESC_SCHEMA,
@@ -200,7 +171,7 @@ Directory.prototype.broadcastDescriptor = function(message) {
         throw error;
     }
 
-    var msg = this.makeMessage(message.msgType, message.payLoad, this.config.role);
+    var msg = this._makeMessage(message.msgType, message.payLoad, this.config.role);
     log.info("Publishing message");
     return publish(DESC_CHANNEL, msg);
 };
@@ -330,16 +301,16 @@ Directory.prototype.updateService = function(descriptor, role) {
 
         throw error;
     }
-    
+
     if(!this.descriptorExists(descriptor[NODE_ID])) {
-        log.error("No descriptor with id" + descriptor[NODE_ID] + "found to update");
+        log.error("No descriptor with id " + descriptor[NODE_ID] + "found to update");
         log.info("Registering a new descriptor..");
         return this.register(descriptor);
     }
     var currentVersion = parseInt((this.getService(descriptor[NODE_ID])).info.version);
     var versionToUpdateTo = parseInt(descriptor.info.version);
     log.info("Current version: " + currentVersion + "\nVersion to update to: " + versionToUpdateTo);
-    
+
     if(descriptor.info.version <= currentVersion){
         log.error("This node already has the latest version");
         return ;
@@ -349,46 +320,14 @@ Directory.prototype.updateService = function(descriptor, role) {
     this.addToLocalStorage(descriptor);
 
     log.debug("Directory.updateService descriptor id: " + descriptor[NODE_ID]);
-    this.removeProxyFile(descriptor[NODE_ID]);
+    this._removeProxyFile(descriptor[NODE_ID]);
 
     if (this.config.role == MASTER) {
-        this.broadcastDescriptor(this.makeMessage("update", descriptor));
+        this.broadcastDescriptor(this._makeMessage("update", descriptor));
     }else{
         if(role != MASTER){
-            this.updateMaster(descriptor);
+            this._updateMaster(descriptor);
         }
-    }
-};
-
-/**
- * As a subordinate directory, call the updateService method of the master directory
- * @method updateMaster
- * @param {Object} [descriptor] extended OpenAPI descriptor of the service
- * @throw {Error}
- */
-Directory.prototype.updateMaster = function(descriptor) {
-
-    log.info("Updating master..");
-    
-    if (!descriptor) {
-        var error = {
-
-            errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.updateMaster: descriptor " + constants.MISSING_PARAMETER_MSG
-        };
-
-        throw error;
-    }
-
-    try{
-
-        var proxy = new proxyFactory.ProxyFactory();
-        var masterProxy = proxy.getMasterAgentProxy(this.config);
-        log.debug("updateMaster masterProxy: " + JSON.stringify(masterProxy));
-        masterProxy.setUpdateService({"descriptor": descriptor});
-    }catch(exception){
-
-        return exception;
     }
 };
 
@@ -422,35 +361,97 @@ Directory.prototype.removeService = function(key, role) {
     }
 
     log.info("directory.removeService removing proxy file of key: " + key);
-    this.removeProxyFile(key);
+    this._removeProxyFile(key);
     document.delete(key);
 
     if (this.config.role == MASTER) {
         var nodeId = {
             "x-node-id": key
         }
-        return this.broadcastDescriptor(this.makeMessage("delete", nodeId));
+        return this.broadcastDescriptor(this._makeMessage("delete", nodeId));
     }
-    
+
     if (role != MASTER) {
-        this.removeServiceFromMaster(key);
+        this._removeServiceFromMaster(key);
+    }
+};
+
+/**
+ * As a subordinate directory, call the register method of the master directory
+ * @method _sendServiceToMaster
+ * @param {Object} [descriptor] extended OpenAPI descriptor of the service
+ * @throw {Error}
+ */
+Directory.prototype._sendServiceToMaster = function(descriptor) {
+
+    if (!descriptor) {
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory._sendServiceToMaster: descriptor " + constants.MISSING_PARAMETER_MSG
+        };
+
+        throw error;
+    }
+    try{
+
+        var proxy = new proxyFactory.ProxyFactory();
+        var masterProxy = proxy.getMasterAgentProxy(this.config);
+        log.debug("Directory._sendServiceToMaster masterProxy: " + JSON.stringify(masterProxy));
+
+        masterProxy.setRegister({"descriptor": descriptor});
+    }catch(exception){
+
+        return exception;
+    }
+};
+
+/**
+ * As a subordinate directory, call the updateService method of the master directory
+ * @method _updateMaster
+ * @param {Object} [descriptor] extended OpenAPI descriptor of the service
+ * @throw {Error}
+ */
+Directory.prototype._updateMaster = function(descriptor) {
+
+    log.info("Updating master..");
+
+    if (!descriptor) {
+        var error = {
+
+            errorCode: constants.MISSING_PARAMETER_CODE,
+            errorDetail: "Directory._updateMaster: descriptor " + constants.MISSING_PARAMETER_MSG
+        };
+
+        throw error;
+    }
+
+    try{
+
+        var proxy = new proxyFactory.ProxyFactory();
+        var masterProxy = proxy.getMasterAgentProxy(this.config);
+        log.debug("updateMaster masterProxy: " + JSON.stringify(masterProxy));
+        masterProxy.setUpdateService({"descriptor": descriptor});
+    }catch(exception){
+
+        return exception;
     }
 };
 
 /**
  * As a subordinate directory, call the removeService method of the master directory
- * @method removeMaster
+ * @method _removeServiceFromMaster
  * @param {String} service identifier (document key)
  * @throw {Error}
  */
-Directory.prototype.removeServiceFromMaster = function(key) {
-	
+Directory.prototype._removeServiceFromMaster = function(key) {
+
     log.info("Removing service from master");
     if (!key) {
         var error = {
 
             errorCode: constants.MISSING_PARAMETER_CODE,
-            errorDetail: "Directory.removeServiceFromMaster: descriptor key " + constants.MISSING_PARAMETER_MSG
+            errorDetail: "Directory._removeServiceFromMaster: descriptor key " + constants.MISSING_PARAMETER_MSG
         };
 
         throw error;
@@ -470,22 +471,22 @@ Directory.prototype.removeServiceFromMaster = function(key) {
 
 /**
  * Delete the proxy file associated with the key
- * @method removeProxyFile
+ * @method _removeProxyFile
  * @param {String} service identifier (document key)
  */
-Directory.prototype.removeProxyFile = function(key) {
+Directory.prototype._removeProxyFile = function(key) {
 
     try{
 
-        log.info("in removeProxyFile Removing proxy file for key: " + key);
+        log.info("in _removeProxyFile Removing proxy file for key: " + key);
         var proxy = new proxyFactory.ProxyFactory();
         var descriptor = this.getService(key);
         var className = proxy.getClassNameFromDescriptor(descriptor);
         var data = {
             "apsdb.name": PROXY_FOLDER + className + "_module"
         };
-        log.debug("In removeProxyFile descriptor: " + JSON.stringify(descriptor) + "\nClass name: " + className + "\ndata: " + JSON.stringify(data));
-        
+        log.debug("In _removeProxyFile descriptor: " + JSON.stringify(descriptor) + "\nClass name: " + className + "\ndata: " + JSON.stringify(data));
+
         var resp = apsdb.callApi("DeleteFile", data, null);
         if (resp.metadata.status == "failure") {
             throw resp;
@@ -498,13 +499,13 @@ Directory.prototype.removeProxyFile = function(key) {
 
 /** 
  * Build a message to broadcast a registration, an update or a delete
- * @method makeMessage
+ * @method _makeMessage
  * @param {String} msgType depends on the intended method to call (new, update, delete)
  * @param {Object} [payLoad] contains the parameters of the method to call
  * @param {String} role specified automatically when calling broadcastDescriptor
  * @return {Object} JSON object containing the message type, the payload and the role of the current directory
  */
-Directory.prototype.makeMessage = function(msgType, payLoad, role) {
+Directory.prototype._makeMessage = function(msgType, payLoad, role) {
     var message = {
         "msgType": msgType,
         "payLoad": JSON.stringify(payLoad),
