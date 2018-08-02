@@ -178,6 +178,27 @@ var desc = {
                 },
                 "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
             }
+        },
+        "/smart-agent/api/visitorToken": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "required": true,
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "returns a visitorToken with its expiration date",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
+            }
         }
     },
     "securityDefinitions": {
