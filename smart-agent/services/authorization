@@ -75,7 +75,7 @@ Authorization.prototype.authenticateFromMaster = function(credentials) {
  * by sending credentials used to authenticate at master. The latter will provide temporary credentials to the 
  * caller
  */
-Authorization.prototype.visitorToken = function(dto) {
+Authorization.prototype.getVisitorToken = function(dto) {
 
     if (!dto || !dto.id) {
         throw {
@@ -95,14 +95,14 @@ Authorization.prototype.visitorToken = function(dto) {
         this._deleteExpiredToken();
 
         var masterProxy = this.proxyFactory.getMasterAgentProxy(directory.config);
-        var res = masterProxy.getVisitorToken(dto).response.result;
+        var res = masterProxy.getGetVisitorToken(dto).response.result;
 
         log.info("Storing new token");
         this._storeToken({visitorToken: res.visitorToken}, res.tokenExpDate);
-        return res;
+        return res.visitorToken;
     }
 
-    log.info("Authorization.visitorToken node is a master");
+    log.info("Authorization.getVisitorToken node is a master");
     var deviceReq = {
 
         query: 'requesterId = "' + dto.id + '"',
