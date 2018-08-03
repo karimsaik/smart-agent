@@ -1,6 +1,8 @@
 var jasmine = require("/modules/jasmine/boot");
 var directoryModule = require("/smart-agent/services/directory");
 var util = require("./util");
+var log = require("log");
+log.setLevel("info");
 var masterDescriptorPath = "/smart-agent/tests/swagger2/master-descriptor";
 
 jasmine.describe("TestDirectory", function() {
@@ -9,23 +11,25 @@ jasmine.describe("TestDirectory", function() {
         isMaster: false,
         masterNodeDescriptor : require(masterDescriptorPath).desc,
         masterAgent:{
-            http: "https://iotfun.scriptrapps.io", 
+            http: "https://stephanie-master.scriptrapps.io", 
             mqtt: "mqtt://mqtt.scriptr.io",
             authenticate: "smart-agent/api/authenticate",
-            token: "QTA0ODE1RTZENDpzY3JpcHRyOjhFQzhBQzU3NzREQzM4QjhFNEE0MEQxQkQ1MEFEOTg0",
-            username: "QTA0ODE1RTZENEBzY3JpcHRy:QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxQHNjcmlwdHI=",
-            password: "QTA0ODE1RTZENDpNYXN0ZXJOb2RlMDAxOkZBODczODEwQ0IxMDVFQjA5MkRENDE4QUMwRUE2NzFB",
+            token: "QTA0ODE1RTZENDpTbGF2ZTE6NjBFNkM1NDYwOEJEQTlGNEFCQUYxQzEyM0QwQTY1Mjk=",
+            username: "QTA0ODE1RTZENEBzY3JpcHRy:QTA0ODE1RTZENDpTbGF2ZTFAc2NyaXB0cg==",
+            password: "QTA0ODE1RTZENDpTbGF2ZTE6NjBFNkM1NDYwOEJEQTlGNEFCQUYxQzEyM0QwQTY1Mjk=",
             collaborationTopic: "collaboration_topic",
-            pubsubTopic: "QTA0ODE1RTZENA==/channel_descriptor/message",
-            invokeTopic: "QTA0ODE1RTZENA==/channel_descriptor/invoke"
+            pubsubTopic: "QTA0ODE1RTZENA==/collaboration_topic/message",
+            invokeTopic: "QTA0ODE1RTZENA==/collaboration_topic/invoke"
         }
     };
 
     var descriptorPath = "./swagger2/valid-descriptor.json";
     var testDescriptorPath = "./swagger2/test-descriptor";
+    var testDescriptorPathV2 = "./swagger2/test-descriptor-v2";
     var directory = new directoryModule.Directory(config);
     var descriptor = require(descriptorPath).desc;
-    var desc = require(testDescriptorPath).desc;
+    var descv1 = require(testDescriptorPath).desc;
+    var descv2 = require(testDescriptorPathV2).desc;
 
     jasmine.beforeAll(function(){
 
@@ -36,13 +40,13 @@ jasmine.describe("TestDirectory", function() {
     });
 
     jasmine.afterAll(function() {
-        util.deleteDocument(descriptor["x-node-id"]);           
+        //util.deleteDocument(descriptor["x-node-id"]);
     });
 
     /*jasmine.it("test register service", function() {
 
         try {
-            //log.info("descriptor:" + JSON.stringify(descriptor));
+
             var listBeforeAdd = util.listDocumentsOfType("service_descriptor", true);           
             directory.register(descriptor);
 
@@ -55,9 +59,33 @@ jasmine.describe("TestDirectory", function() {
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
-    });
+    });*/
 
-    jasmine.it("test register service", function() {
+    /*jasmine.it("test remove service", function() {
+
+        try {
+            var listBeforeRemove = util.listDocumentsOfType("service_descriptor", true);    
+            directory.removeService(descriptor["x-node-id"]);
+            var listAfterRemove = util.listDocumentsOfType("service_descriptor", true);
+            jasmine.expect(listAfterRemove.length).toBe(listBeforeRemove.length - 1);
+            jasmine.expect(util.documentExists("edge-node-001")).toBe(false);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
+    /*jasmine.it("test remove service", function() {
+
+        try {
+
+            directory.removeService(descriptor["x-node-id"]);
+            jasmine.expect(util.documentExists("edge-node-001")).toBe(false);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
+    /*jasmine.it("test register service", function() {
 
         try {
 
@@ -69,29 +97,59 @@ jasmine.describe("TestDirectory", function() {
         }
     });*/
 
-    jasmine.it("test update service", function() {
+    /*jasmine.it("test update service", function() {
 
         try {
-            log.info("from testdirectory: " + JSON.stringify(desc));
-            directory.updateService(desc);
-            // check if descriptor document with expected key was created
-            util.getDocument(desc["x-node-id"]);
-        }catch(exception){
-            jasmine.fail(JSON.stringify(exception));
-        }
-    });
 
-    /*jasmine.it("test remove service", function() {
-
-        try {
-            log.info("from testdirectory descriptor id: " + desc["x-node-id"]);
-            directory.removeService(desc["x-node-id"]);
+            directory.updateService(descv1);
+            util.getDocument(descv1["x-node-id"]);
+            jasmine.expect(JSON.parse(util.getDocument(descv1["x-node-id"]).info).version).toBe('1.0');
+            jasmine.expect(util.documentExists(descv1["x-node-id"])).toBe(true);
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
     });*/
 
-    /*    jasmine.it("test list services by category", function() {
+    /*jasmine.it("test update service", function() {
+
+        try {
+
+            directory.updateService(descv2);
+            jasmine.expect(JSON.parse(util.getDocument(descv2["x-node-id"]).info).version).toBe('2.0');
+            jasmine.expect(util.documentExists(descv2["x-node-id"])).toBe(true);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
+    //Execute after the previous test to check that the descriptor's version remains new
+    /*jasmine.it("test update service", function() {
+
+        try {
+
+            directory.updateService(descv1);
+            util.getDocument(descv1["x-node-id"]);
+            jasmine.expect(JSON.parse(util.getDocument(descv1["x-node-id"]).info).version).toBe('2.0');
+            jasmine.expect(util.documentExists(descv1["x-node-id"])).toBe(true);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
+    /*jasmine.it("test remove service", function() {
+
+        try {
+            var listBeforeRemove = util.listDocumentsOfType("service_descriptor", true);    
+            directory.removeService(descv2["x-node-id"]);
+            var listAfterRemove = util.listDocumentsOfType("service_descriptor", true);
+            jasmine.expect(listAfterRemove.length).toBe(listBeforeRemove.length - 1);
+            jasmine.expect(util.documentExists("test-node-003")).toBe(false);
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
+    /*jasmine.it("test list services by category", function() {
 
         try {
 
@@ -106,9 +164,9 @@ jasmine.describe("TestDirectory", function() {
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
-    });    
+    });*/ 
 
-    jasmine.it("test list services by protocol", function() {
+    /*jasmine.it("test list services by protocol", function() {
 
         try {
 
@@ -123,9 +181,9 @@ jasmine.describe("TestDirectory", function() {
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
-    });    
+    });*/ 
 
-    jasmine.it("test list services by node id", function() {
+    /*jasmine.it("test list services by node id", function() {
 
         try {
 
@@ -140,9 +198,9 @@ jasmine.describe("TestDirectory", function() {
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
-    });
+    });*/
 
-    jasmine.it("test get service by key", function() {
+    /*jasmine.it("test get service by key", function() {
 
         try {
 
