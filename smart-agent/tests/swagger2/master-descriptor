@@ -179,7 +179,7 @@ var desc = {
                 "x-mqtt-topic": "UzIyQTgwRjc2Ng==/ccc/invoke"
             }
         },
-        "/smart-agent/api/visitorToken": {
+        "/smart-agent/api/getVisitorToken": {
             "get": {
                 "parameters": [
                     {
