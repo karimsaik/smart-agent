@@ -52,6 +52,10 @@ master_node_001.prototype.getRemoveService = function(params){
 master_node_001.prototype.getVerifyToken = function(params){
 	return this.sendHttpRequest(params, '/smart-agent/api/verifyToken', 'get');
 };
+master_node_001.prototype.getGetVisitorToken = function(params){
+	if (!params || !params.id) throw {errorCode: 'Missing_Parameter', errorDetail: 'id is required'};
+	return this.sendHttpRequest(params, '/smart-agent/api/getVisitorToken', 'get');
+};
 
 master_node_001.prototype.sendHttpRequest = function(params, path, method, contentType) {
 	var requestParams = {
