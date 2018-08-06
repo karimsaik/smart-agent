@@ -1,12 +1,20 @@
 var jasmine = require("modules/jasmine/boot");
 var authorizationModule = require("/smart-agent/services/authorization");
+var util = require("smart-agent/tests/util");
+var document = require("document");
 
 jasmine.describe("TestAuthorization", function(){
 
     var authorization = new authorizationModule.Authorization();
-    
+    var date = new Date();
+    date = util.toScriptrDateFormat(date);
+
     jasmine.beforeAll(function(){
 
+        var validTokenDoc = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0];
+        if(validTokenDoc){
+            util.deleteDocument(validTokenDoc.key);
+        }
     });
 
     jasmine.beforeEach(function() {
@@ -16,35 +24,51 @@ jasmine.describe("TestAuthorization", function(){
     jasmine.afterAll(function() {
     });
 
+    jasmine.it("test getting a visitor token from the master node", function() {
+
+        try {
+
+            var expDateBeforeGet = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0];
+            jasmine.expect(expDateBeforeGet).toBeUndefined();
+            authorization.getVisitorToken({"id": "Slave1@A04815E6D4"});
+            var expDateAfterGet = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0];
+            jasmine.expect(expDateAfterGet).toBeDefined();
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });
+
+    //To be executed after getting a visitor token
+    /*jasmine.it("test authenticate node from master", function() {
+
+        try {
+
+            var visitorToken = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0].visitorToken;
+            var credentials = {
+
+                token: visitorToken
+            };
+
+            jasmine.expect(authorization.authenticateFromMaster(credentials).response.result).toBe("success");
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+
     /*jasmine.it("test authenticate node", function() {
 
         try {
 
+			var visitorToken = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0].visitorToken;
             var credentials = {
-                
-                token: "QTA0ODE1RTZENDpDb2xsYWJvcmF0b3JOb2RlOjcwQzcxQTEzMDE5NUIwREVCMTc4QTQ3QzY0QTUxMEEw"
+
+                token: visitorToken
             };
-            
+
             jasmine.expect(authorization.authenticate(credentials)).toBe("success");
         }catch(exception){
             jasmine.fail(JSON.stringify(exception));
         }
     });*/
-    
-    jasmine.it("test authenticate node", function() {
-
-        try {
-
-            var credentials = {
-                
-                token: "QTA0ODE1RTZENDpUZXN0Tm9kZTpFMTUyQjA2ODVBMEMyNkVDRTgwMDk2MUFGRTExNkExQw=="
-            };
-            
-            jasmine.expect(authorization.authenticate(credentials)).toBe("success");
-        }catch(exception){
-            jasmine.fail(JSON.stringify(exception));
-        }
-    });
-    
 });
 jasmine.execute();
