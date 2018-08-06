@@ -1,0 +1,50 @@
+var jasmine = require("modules/jasmine/boot");
+var authorizationModule = require("/smart-agent/services/authorization");
+
+jasmine.describe("TestAuthorization", function(){
+
+    var authorization = new authorizationModule.Authorization();
+    
+    jasmine.beforeAll(function(){
+
+    });
+
+    jasmine.beforeEach(function() {
+
+    });
+
+    jasmine.afterAll(function() {
+    });
+
+    /*jasmine.it("test authenticate node", function() {
+
+        try {
+
+            var credentials = {
+                
+                token: "QTA0ODE1RTZENDpDb2xsYWJvcmF0b3JOb2RlOjcwQzcxQTEzMDE5NUIwREVCMTc4QTQ3QzY0QTUxMEEw"
+            };
+            
+            jasmine.expect(authorization.authenticate(credentials)).toBe("success");
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });*/
+    
+    jasmine.it("test authenticate node", function() {
+
+        try {
+
+            var credentials = {
+                
+                token: "QTA0ODE1RTZENDpUZXN0Tm9kZTpFMTUyQjA2ODVBMEMyNkVDRTgwMDk2MUFGRTExNkExQw=="
+            };
+            
+            jasmine.expect(authorization.authenticate(credentials)).toBe("success");
+        }catch(exception){
+            jasmine.fail(JSON.stringify(exception));
+        }
+    });
+    
+});
+jasmine.execute();
