@@ -30,7 +30,7 @@ jasmine.describe("TestAuthorization", function(){
 
             var expDateBeforeGet = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0];
             jasmine.expect(expDateBeforeGet).toBeUndefined();
-            authorization.getVisitorToken({"id": "Slave1@A04815E6D4"});
+            authorization.getVisitorToken({"id": "Slave1@A04815E6D4"}); //id value to be replaced with personal id
             var expDateAfterGet = util.findDocumentsByCriteria('tokenExpDate<date> >"' + date + '"')[0];
             jasmine.expect(expDateAfterGet).toBeDefined();
         }catch(exception){
