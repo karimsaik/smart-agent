@@ -149,7 +149,7 @@ Authorization.prototype.getVisitorToken = function(dto) {
 };
 
 /**
- * From the document, get the token's expiration date
+ * From the document associated with the visitor id in the parameter, get the token's expiration date
  * @method _getTokenExpDate
  * @param {String} visitorId: the device's Id
  * @return {Date} The expiration date of the token
