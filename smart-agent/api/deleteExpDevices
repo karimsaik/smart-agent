@@ -8,19 +8,21 @@ log.setLevel("info");
 var date = new Date();
 
 date.setMinutes(date.getMinutes()-config.deviceTTL);
-date = util.toScriptrDataFormat(date);
+date = util.toScriptrDateFormat(date);
 
 //var devicedate = document.get("966AA5AB83CAC762A5321CF36018A2DC").result.lastModifiedDate;
 //return devicedate<date;
 
 var visitorDocs = {
+    
     query: 'apsdb.schema = "' + "visitor_token" + '"' + ' and lastModifiedDate<date> < "' + date + '"',
     fields: "visitorId"
 };
 
 var documents = document.query(visitorDocs).result.documents
 
-for (var i=0; i<documents.length; i++){
+for (var i=0; i<documents.length; i++) {
+    
     log.info("Document number " + i);
     device.delete(documents[i].visitorId);
     document.delete(documents[i].key);
