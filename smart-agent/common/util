@@ -31,7 +31,7 @@ function randomId() {
     return id;
 }
 
-function toScriptrDataFormat(aDate) {
+function toScriptrDateFormat(aDate) {
 
     var date = null;
     var dateStr = "";
