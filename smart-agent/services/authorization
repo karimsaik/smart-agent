@@ -8,7 +8,8 @@ var document = require("document");
 const masterNodeDescriptor = require("smart-agent/tests/swagger2/master-descriptor").desc;
 const MASTER = "master";
 var directoryModule = require("./directory");
-const VISITOR_TOKEN_SCHEMA = "visitor_token";
+const VISITOR_CREDENTIALS_MASTER_SCHEMA = "visitor_credentials_master";
+const VISITOR_CREDENTIALS_SLAVE_SCHEMA = "visitor_credentials_slave";
 var config = require("smart-agent/setup/config");
 
 /**
@@ -24,11 +25,11 @@ function Authorization() {
 /**
  * @method authenticate
  * @param {Object} credentials: the token to authenticate
- * @return {String} if the token is valid returns success else throws an error
+ * @return {String} if the token is valid return success else throw an error
  * @throw {Error}
  */
 Authorization.prototype.authenticate = function(credentials) {
-    
+
     //if not master
     var directory = new directoryModule.Directory();
     if (directory.config != MASTER) {
@@ -44,12 +45,12 @@ Authorization.prototype.authenticate = function(credentials) {
 };
 
 /**
- * Convey a token that was received in the "x-auhtorization" header to the master agent in order to
+ * Convey a token that was received in the "x-smart-agent-authorization" header to the master agent in order to
  * authenticate it. If the master agent is able to authenticate the corresponding device as part of  
  * the collaboration boundary, add the device locally and generate a token
  * @method authenticateFromMaster
  * @param {Object} credentials: the token to authenticate
- * @return {String} if the token is valid returns success else throws an INVALID_TOKEN error
+ * @return {String} if the token is valid return success else throw an error
  */
 Authorization.prototype.authenticateFromMaster = function(credentials) {
 
@@ -71,11 +72,14 @@ Authorization.prototype.authenticateFromMaster = function(credentials) {
 
 /**
  * Get the credentials needed to invoke remote services on a third party node
- * First checks if credentials are available locally, if not, should ask for credentials agains the 3rd party
+ * First checks if credentials are available locally, if not, should ask for credentials against the 3rd party
  * by sending credentials used to authenticate at master. The latter will provide temporary credentials to the 
  * caller
+ * @method getVisitorCredentials
+ * @param {String} dto: an object that contains the requesterId
+ * @return {String} A valid visitor token
  */
-Authorization.prototype.getVisitorToken = function(dto) {
+Authorization.prototype.getVisitorCredentials = function(dto) {
 
     if (!dto || !dto.id) {
         throw {
@@ -87,22 +91,22 @@ Authorization.prototype.getVisitorToken = function(dto) {
     var directory = new directoryModule.Directory();
     if (directory.config.role != MASTER) {
 
-        var token = this._getValidTokenFromDoc();
-        if(token){
-            return token;
+        var credentials = this._getValidCredentialsFromDoc();
+        if (credentials) {
+            log.info("Credentials are valid");
+            return credentials;
         }
-        log.info("No valid token");
-        this._deleteExpiredToken();
+        log.info("No valid credentials");
+        this._deleteExpiredCredentials();
 
         var masterProxy = this.proxyFactory.getMasterAgentProxy(directory.config);
-        var res = masterProxy.getGetVisitorToken(dto).response.result;
-
-        log.info("Storing new token");
-        this._storeToken({visitorToken: res.visitorToken}, res.tokenExpDate);
-        return res.visitorToken;
+        var res = masterProxy.getGetVisitorCredentials(dto).response.result;
+        log.info("Storing new credentials");
+        this._storeCredentials({visitorToken: res.visitorCredentials.token, visitorUsername: res.visitorCredentials.username, visitorPassword: res.visitorCredentials.password}, res.credentialsExpDate);
+        return {visitorToken: res.visitorCredentials.token, visitorUsername: res.visitorCredentials.username, visitorPassword: res.visitorCredentials.password};
     }
 
-    log.info("Authorization.getVisitorToken node is a master");
+    log.info("Authorization.getVisitorCredentials node is a master");
     var deviceReq = {
 
         query: 'requesterId = "' + dto.id + '"',
@@ -112,12 +116,12 @@ Authorization.prototype.getVisitorToken = function(dto) {
     if (!this._deviceExists(deviceReq)) {
 
         log.error("Device does not exist");
-        var name = util.randomId();
-        var password = util.randomId();
+        var deviceName = util.randomId();
+        var devicePassword = util.randomId();
         var dev = {
 
-            "name": name,
-            "password": password
+            "name": deviceName,
+            "password": devicePassword
         };
 
         log.info("Device: \n" + JSON.stringify(dev));
@@ -128,12 +132,13 @@ Authorization.prototype.getVisitorToken = function(dto) {
             "visitorId": newVisitorId,
             "requesterId": dto.id,
             "tokensGenerated": 1,
-            "meta.schema": VISITOR_TOKEN_SCHEMA
+            "meta.schema": VISITOR_CREDENTIALS_MASTER_SCHEMA
         };
 
         var token = device.generateToken(newVisitor.result.device.id).result.token;
+        var mqttCredentials = this._getMQTTCredentials(token, newVisitorId);
         document.create(fields);
-        return {"visitorToken": token, "tokenExpDate": this._getTokenExpDate(newVisitorId)};
+        return {"visitorCredentials": {token: token, username: mqttCredentials.username, password: mqttCredentials.password}, "credentialsExpDate": this._getCredentialsExpDate(newVisitorId)};
     }else{
 
         log.info("Device exists");
@@ -144,22 +149,23 @@ Authorization.prototype.getVisitorToken = function(dto) {
 
         document.update({"key": docKey, "tokensGenerated": tokensGenerated, "meta.types": {"tokensGenerated": "numeric"}});
         var token = device.regenerateToken(visitorId).result.token;
-        return {"visitorToken": token, "tokenExpDate": this._getTokenExpDate(visitorId)};
+        var mqttCredentials = this._getMQTTCredentials(token, visitorId);
+        return {"visitorCredentials": {token: token, username: mqttCredentials.username, password: mqttCredentials.password}, "credentialsExpDate": this._getCredentialsExpDate(visitorId)};   
     }
 };
 
 /**
  * From the document associated with the visitor id in the parameter, get the token's expiration date
- * @method _getTokenExpDate
+ * @method _getTokenCredentialsDate
  * @param {String} visitorId: the device's Id
  * @return {Date} The expiration date of the token
  */
-Authorization.prototype._getTokenExpDate = function(visitorId) {
+Authorization.prototype._getCredentialsExpDate = function(visitorId) {
 
     var lastModifiedDate = document.query({query: 'visitorId ="' + visitorId + '"', fields: "lastModifiedDate"}).result.documents[0].lastModifiedDate;
     var expDate = new Date(lastModifiedDate);
     expDate = expDate.setMinutes(expDate.getMinutes() + config.tokenTTL);
-    return util.toScriptrDataFormat(expDate);
+    return util.toScriptrDateFormat(expDate);
 };
 
 /**
@@ -175,13 +181,13 @@ Authorization.prototype._deviceExists = function(deviceReq){
 
 /**
  * Stores the recently generated token and its expiration date
- * @method _storeToken
+ * @method _storeCredentials
  * @param {Object} credentials: the token to store
  * @param {date} tokenExpirationDate: the token's expiration date
  */
-Authorization.prototype._storeToken = function(credentials, tokenExpirationDate) {
+Authorization.prototype._storeCredentials = function(credentials, credentialsExpirationDate) {
 
-    document.save({visitorToken: credentials.visitorToken, tokenExpDate: tokenExpirationDate, "meta.types": {tokenExpDate: "date"}});
+    return document.save({visitorToken: credentials.visitorToken, visitorUsername: credentials.visitorUsername, visitorPassword: credentials.visitorPassword, credentialsExpDate: credentialsExpirationDate, "meta.schema": VISITOR_CREDENTIALS_SLAVE_SCHEMA});
 };
 
 /**
@@ -189,29 +195,49 @@ Authorization.prototype._storeToken = function(credentials, tokenExpirationDate)
  * @method _getValidTokenFromDoc
  * @return {String} if token exists returns it else it return null
  */
-Authorization.prototype._getValidTokenFromDoc = function(){
+Authorization.prototype._getValidCredentialsFromDoc = function(){
 
     var date = new Date();
-    date = util.toScriptrDataFormat(date);
-    var validTokenDoc = document.query({query: 'tokenExpDate<date> >"' + date + '"', fields: "*"}).result.documents[0];
+    date = util.toScriptrDateFormat(date);
+    var validTokenDoc = document.query({query: 'credentialsExpDate<date> >"' + date + '"', fields: "*"}).result.documents[0];
     if (validTokenDoc) {
-
-        return validTokenDoc.visitorToken;
+        
+        var credentials = {
+            
+            visitorToken: validTokenDoc.visitorToken,
+            visitorUsername: validTokenDoc.visitorUsername,
+            visitorPassword: validTokenDoc.visitorPassword
+        };
+        return credentials;
     }
     return;
 };
 
 /**
  * Get token if it has exceeded its expiration date and delete it
- * @method _deleteExpiredToken
+ * @method _deleteExpiredCredentials
  */
-Authorization.prototype._deleteExpiredToken = function(){
+Authorization.prototype._deleteExpiredCredentials = function(){
 
     var date = new Date();
-    date = util.toScriptrDataFormat(date);
-    var expiredToken = document.query({query: 'tokenExpDate<date> <"' + date + '"', fields: "tokenExpDate"}).result.documents[0];
-    if(expiredToken){
+    date = util.toScriptrDateFormat(date);
+    var expiredCredentials = document.query({query: 'credentialsExpDate<date> <"' + date + '"', fields: "credentialsExpDate"}).result.documents[0];
+    if(expiredCredentials){
         log.info("Expired token found, deleting");
-        document.delete(expiredToken.key);
+        document.delete(expiredCredentials.key);
     }
 }
+
+Authorization.prototype._getMQTTCredentials = function(token, deviceID) {
+
+    var cluster = "@scriptr";
+    var accountKey = request.account.accountKey;
+    var vhost = btoa(accountKey + cluster);
+    var user = btoa(accountKey + ":" + deviceID + cluster);
+    var username = vhost + ":" + user;
+    var password = token;
+    return {
+        username: username,
+        password: password
+    }
+};
