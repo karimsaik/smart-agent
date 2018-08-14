@@ -1,0 +1,79 @@
+var authorizationModule = require("smart-agent/services/authorization");
+var log = require("log");
+log.setLevel("info");
+const HTTP = "http";
+const MQTT = "mqtt";
+var http = require(HTTP);
+var mqtt = require(MQTT);
+/**
+ * Handles remote callbacks
+ * @class CallbackManager
+ * @constructor
+ */
+function CallbackManager() {
+
+   var authorization = new authorizationModule.Authorization();
+}
+
+/**
+ * Invokes the remote callback method based on the callbackObj and the payload
+ * @method invokeCallback
+ * @param {Object} [callbackObj]
+ * @param {Object} [callbackObj][credentials]
+ * @param {String} [callbackObj][credentials][token]: the token to pass when invoking the callback through an HTTP call
+ * @param {String} [callbackObj][credentials][username]: the username to use for making an MQTT call
+ * @param {String} [callbackObj][credentials][password]: the password to use for making an MQTT call
+ * @param {String} [callbackObj][protocol]: the protocol to use to invoke the callback
+ * @param {String} [callbackObj][endpoint]: http or mqtt endpoint
+ * @param {String} [callbackObj][servicePath]: the url's path for an http call, the topic for an mqtt call
+ * @return {Object} return the response's body if an http call and the response if an mqtt call
+ * @throw {Error}
+ */
+CallbackManager.prototype.invokeCallback = function(callbackObj, payload) {
+    
+    var credentials = JSON.parse(callbackObj.credentials);
+    if (callbackObj.protocol.toLowerCase == HTTP) {
+
+        var requestParams = {
+
+            url: callbackObj.endpoint + callbackObj.servicePath,
+            method: 'post',
+            headers: {
+                'Authorization': 'Bearer ' + credentials.token,
+                'Content-Type': 'application/json'
+            },
+            bodyString: JSON.stringify(payload)
+        };
+        var resp = http.request(requestParams);
+        var body = JSON.parse(resp.body);
+        if (resp.status != 200) {
+            
+            throw JSON.parse(body);
+        }
+        if (body.response.metadata && body.response.metadata.status == 'failure') {
+            
+            throw body.response;
+        }
+        return body;
+
+    }else if (callbackObj.protocol.toLowerCase == MQTT) {
+
+        var mqttClient = mqtt.getInstance(callbackObj.endpoint, {username: credentials.username, password: credentials.password});
+        if (mqttClient.metadata && mqttClient.metadata.status == 'failure') {
+
+            throw mqttClient.metadata;
+        }
+        
+        var resp = mqttClient.publish(callbackObj.servicePath, JSON.stringify(payload));
+        if (resp.metadata.status == 'failure') {
+
+            throw resp;
+        }else{
+
+            return resp;
+        }
+    }else{
+
+        log.error("Protocol not supported");
+    }
+};
