@@ -8,7 +8,7 @@ const MQTT_BASED = "scriptr.io";
 var constants = require("/smart-agent/common/constants");
 var config = require("smart-agent/setup/config");
 var log = require("log");
-log.setLevel("info");
+log.setLevel("debug");
 
 /**
  * This class is used to obtain instances of proxies to remote services
@@ -26,7 +26,7 @@ function ProxyFactory() {
  * @throw {Error} : if the current agent is a master agent
  */
 ProxyFactory.prototype.getMasterAgentProxy = function(config) {
-	
+
     log.debug("getMasterAgentProxy role: " + config.role);
     if(config.role == "master"){
         throw{
@@ -36,14 +36,14 @@ ProxyFactory.prototype.getMasterAgentProxy = function(config) {
     }
     try{
         var masterDescriptor = config.masterNodeDescriptor;
-		log.debug("masterDescriptor: \n" + JSON.stringify(masterDescriptor));
+        log.info("masterDescriptor: \n" + JSON.stringify(masterDescriptor));
         var initParams = {
             token: config.masterAgent.token,
             username: config.masterAgent.username,
             password: config.masterAgent.password
         };
-        log.debug("initParams: \n" + JSON.stringify(initParams));
-        log.debug("Now excecuting getProxy");
+        log.info("initParams: \n" + JSON.stringify(initParams));
+        log.info("Now excecuting getProxy");
         return this.getProxy(masterDescriptor, initParams);
     }catch(exception){
         return exception;
@@ -76,19 +76,19 @@ ProxyFactory.prototype.getProxy = function(descriptor, initParams) {
     }
 
     var className = this.getClassNameFromDescriptor(descriptor);
-    log.debug("Class name: " + className);
+    log.info("Class name: " + className);
     if (!this.proxyExists(className)) {
         log.error("In ProxyFactory.getProxy proxy does no exist");
         this.generateProxy(descriptor);
     }
-	log.info("In ProxyFactory.getProxy proxy exists");
+    log.info("In ProxyFactory.getProxy proxy exists");
     var proxyModule = require(PROXY_FOLDER + className + MODULE);
     return new proxyModule[className](initParams);
 };
 
 /**
  * @method proxyExists
- * @param {String} className: the name of a proxy class, based on a descriptor x-node-id property
+ * @param {String} className: the name of a proxy class
  * @return {Boolean} true if proxy script exists (already generated in /proxies), false otherwise
  */
 ProxyFactory.prototype.proxyExists = function(className) {
@@ -178,7 +178,7 @@ ProxyFactory.prototype.generateMethods = function(name, path) {
 
         if (path[keys[i]].hasOwnProperty("get")) {
 
-            functionStr += name + ".prototype.get" + fctNameUpper + " = function(params){\n";
+            functionStr += name + ".prototype.get" + fctNameUpper + " = function(params, callback){\n";
             functionStr += this.addParametersValidation(path[keys[i]], "get");
             functionStr += "\treturn this.sendHttpRequest(params, '" + keys[i] + "', 'get');\n"
             functionStr += "};\n"
@@ -187,7 +187,7 @@ ProxyFactory.prototype.generateMethods = function(name, path) {
         if (path[keys[i]].hasOwnProperty("post")) {
 
             var contentType = path[keys[i]].post.consumes[0];
-            functionStr += name + ".prototype.set" + fctNameUpper + " = function(params){\n";
+            functionStr += name + ".prototype.set" + fctNameUpper + " = function(params, callback){\n";
             functionStr += this.addParametersValidation(path[keys[i]], "post");
             functionStr +=  
                 "\tif(this.supportedProtocols[0].toLowerCase() == 'mqtt'){ //the order of supported protocols specifies which one to use first\n";
@@ -237,24 +237,56 @@ ProxyFactory.prototype.addParametersValidation = function(path, method) {
  */
 ProxyFactory.prototype.generateHttpCaller = function(name) {
 
-    var str = name + ".prototype.sendHttpRequest = function(params, path, method, contentType) {\n" +
+    var str = name + ".prototype.sendHttpRequest = function(params, path, method, contentType, callback) {\n" +
         "\tvar requestParams = {\n" + 
         "\t\turl: this.httpEndpoint + path" + ",\n" + 
         "\t\tmethod: method,\n" +        
         "\t\theaders: {\n" + 
         "\t\t\t'Authorization': 'Bearer ' + this.token \n" +
         "\t\t}\n" +
-        "\t}\n";    
+        "\t}\n";
 
     str += "\tif (contentType) {\n" +
         "\t\trequestParams.headers['Content-Type'] = contentType;\n" +
         "\t}\n"; 
 
-    str += "\tif(contentType == 'application/json') {\n" + 
+
+    str += "\tif(!callback) {\n" + 
+        "\t\tif(contentType == 'application/json') {\n" + 
         "\t\t\trequestParams.bodyString=JSON.stringify(params);\n" +
-        "\t}else {\n" + 
-        "\t\trequestParams.params = params;\n" + 
+        "\t\t}else {\n" + 
+        "\t\t\trequestParams.params = params;\n" + 
+        "\t\t}\n" +
+        "\t}else{\n" +
+        "\t\tif (!callback.credentials.token) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'token is required'};\n" +
+        "\t\t}\n" +
+        "\t\tif (!callback.endpoint) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'endpoint is required'};\n" +
+        "\t\t}\n" +
+        "\t\tif (!callback.servicePath) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'servicePath is required'};\n" +
+        "\t\t}\n" +
+        "\t\tif (!callback.protocol) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'protocol is required'};\n" +
+        "\t\t}\n" +
+        "\t\tif(contentType == 'application/json') {\n" + 
+        "\t\t\tvar body = {};\n" +
+        "\t\t\tfor(var key in params) body[key] = params[key];\n" +
+        "\t\t\tfor(var key in callback) body[key] = callback[key];\n" +
+        "\t\t\trequestParams.bodyString=JSON.stringify(body);\n" +
+        "\t\t}else {\n" + 
+        "\t\t\tvar parameters = {};\n" +
+        "\t\t\tfor(var key in params) parameters[key] = params[key];\n" +
+        "\t\t\tfor(var key in callback) parameters[key] = callback[key];\n" +
+        "\t\tif(!parameters.credentials instanceof String) {\n" +
+        "\t\t\tparameters.credentials = JSON.stringify(parameters.credentials);\n" +
+        "\t\t}\n" +
+        "\t\t\trequestParams.params = parameters;\n" +
+        "\t\t}\n" +
         "\t}\n";
+
+
 
     str += "\tvar resp = http.request(requestParams);\n" +
         "\tif (resp.status != 200) {\n" + 
@@ -264,8 +296,8 @@ ProxyFactory.prototype.generateHttpCaller = function(name) {
         "\tif(body.response.metadata && body.response.metadata.status == 'failure'){\n" +
         "\t\tthrow body.response;\n" +
         "\t}\n" + 
-        "\treturn body;\n" +        
-        "};\n"
+        "\treturn body;\n" +  
+        "};\n";
 
     return str;
 };
@@ -278,12 +310,31 @@ ProxyFactory.prototype.generateHttpCaller = function(name) {
  */
 ProxyFactory.prototype.generateMQTTCaller = function(name, topic) {
 
-    var str = name + ".prototype.sendMQTTMessage = function(msg, topic) {\n" +
+    var str = name + ".prototype.sendMQTTMessage = function(msg, topic, callback) {\n" +
         "\tvar mqttClient = mqtt.getInstance(this.mqttEndpoint, {username:this.username, password:this.password});\n" + 
         "\tif (mqttClient.metadata && mqttClient.metadata.status == 'failure'){\n" +
         "\t\tthrow mqttClient.metadata;\n" +
         "\t}\n" +
-        "\tvar resp = mqttClient.publish(topic, JSON.stringify(msg));\n" +
+        "\tif(!callback) {\n" +
+        "\t\tvar resp = mqttClient.publish(topic, JSON.stringify(msg));\n" +
+        "\t}else{\n" +
+        "\t\tif (!callback.credentials.username || !callback.credentials.password) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'MQTT credentials are required'};\n" +
+        "\t\t}\n" +
+        "\t\tif (!callback.endpoint) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'endpoint is required'};\n" +
+        "\t\t}\n" +
+        "\t\tif (!callback.servicePath) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'servicePath is required'};\n" +
+        "\t\t}\n" +
+        "\t\tif (!callback.protocol) {\n" +
+        "\t\t\t throw {errorCode: 'Missing_Parameter', errorDetail: 'protocol is required'};\n" +
+        "\t\t}\n" +
+        "\t\tvar messageObj = {};\n" +
+        "\t\tfor(var key in msg) messageObj[key] = msg[key];\n" +
+        "\t\tfor(var key in callback) messageObj[key] = callback[key];\n" +
+        "\t\tvar resp = mqttClient.publish(topic, JSON.stringify(messageObj));\n" +
+        "\t}\n" +
         "\tif(resp.metadata.status == 'failure'){\n" + 
         "\t\tthrow resp;\n" + 
         "\t}else{\n" +
